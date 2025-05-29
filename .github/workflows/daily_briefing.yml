@@ -1,0 +1,26 @@
+name: Daily China Briefing
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * *' # jeden Tag um 06:00 UTC = 08:00 MESZ
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install openai python-dotenv requests
+
+      - name: Run daily briefing script
+        run: python briefing.py
+        env:
+          CONFIG: ${{ secrets.CONFIG }}
