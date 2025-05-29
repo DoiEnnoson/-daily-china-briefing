@@ -1,46 +1,54 @@
 import os
 import smtplib
 from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 
-# Konfig aus Umgebungsvariable laden
-config_string = os.getenv("CONFIG")
-if not config_string:
+# Konfiguration aus ENV laden
+config = os.getenv("CONFIG")
+if not config:
     raise ValueError("CONFIG environment variable not found!")
 
+pairs = config.split(";")
+config_dict = dict(pair.split("=", 1) for pair in pairs)
+
+# Beispiel-Inhalt für das Briefing
+briefing_content = """
+Guten Morgen, Hado
+
+📅 Dies ist dein tägliches China-Briefing – Testversion.
+
+🌏 Wirtschaft:
+– Chinas Industrieproduktion stieg im April um 6,7 % im Jahresvergleich.
+– Tesla senkt erneut die Preise in China – Konkurrenzdruck durch BYD wächst.
+
+🏛️ Politik:
+– Premier Li Qiang empfängt eine Delegation aus Deutschland.
+– Hongkongs Sicherheitsgesetz sorgt für neue Spannungen mit den USA.
+
+🌐 Außenbeziehungen:
+– China und Brasilien vertiefen ihre Kooperation im Agrarsektor.
+– Neue Spannungen im Südchinesischen Meer mit den Philippinen.
+
+🧪 Dies ist ein Testinhalt. Morgen bekommst du echte Daten 😉
+
+Einen erfolgreichen neuen Tag! 
+"""
+
 print("✅ CONFIG wurde geladen.")
+print("🧠 Erzeuge Briefing...")
 
-# Umwandeln in Dictionary
-pairs = config_string.split(";")
-config = dict(pair.split("=", 1) for pair in pairs)
+# E-Mail vorbereiten
+msg = MIMEText(briefing_content)
+msg["Subject"] = "Dein tägliches China-Briefing"
+msg["From"] = config_dict["EMAIL_USER"]
+msg["To"] = config_dict["EMAIL_TO"]
 
-# Beispielhafte Briefing-Erzeugung
-def generate_briefing():
-    print("🧠 Erzeuge Briefing...")
-    return "Guten Morgen!\n\nDies ist dein tägliches China-Briefing.\n\n– Wirtschaft\n– Politik\n– Außenbeziehungen\n\nSchönen Tag dir!"
+print("📤 Sende E-Mail...")
 
-# E-Mail-Versand
-def send_email(subject, content):
-    print("📤 Sende E-Mail...")
-    try:
-        msg = MIMEMultipart()
-        msg['From'] = config['EMAIL_USER']
-        msg['To'] = config['EMAIL_TO']
-        msg['Subject'] = subject
-        msg.attach(MIMEText(content, 'plain'))
-
-        server = smtplib.SMTP(config['EMAIL_HOST'], int(config['EMAIL_PORT']))
+try:
+    with smtplib.SMTP(config_dict["EMAIL_HOST"], int(config_dict["EMAIL_PORT"])) as server:
         server.starttls()
-        server.login(config['EMAIL_USER'], config['EMAIL_PASSWORD'])
+        server.login(config_dict["EMAIL_USER"], config_dict["EMAIL_PASSWORD"])
         server.send_message(msg)
-        server.quit()
-
-        print("✅ E-Mail wurde gesendet!")
-    except Exception as e:
-        print("❌ Fehler beim Senden der E-Mail:", e)
-
-# Ablauf starten
-if __name__ == "__main__":
-    content = generate_briefing()
-    send_email("📰 Daily China Briefing", content)
-
+    print("✅ E-Mail wurde gesendet!")
+except Exception as e:
+    print("❌ Fehler beim Senden der E-Mail:", str(e))
