@@ -43,3 +43,4 @@ def send_email(subject, content):
 if __name__ == "__main__":
     content = generate_briefing()
     send_email("📰 Daily China Briefing", content)
+
