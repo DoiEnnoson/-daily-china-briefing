@@ -1,6 +1,8 @@
 import os
 import smtplib
 import feedparser
+import requests
+from bs4 import BeautifulSoup
 from datetime import datetime
 from email.mime.text import MIMEText
 
@@ -51,7 +53,7 @@ feeds = {
 def fetch_news(feed_url, max_items=10):
     """Ruft Nachrichtenartikel ab, filtert nach China-Bezug & entfernt Werbung."""
     feed = feedparser.parse(feed_url)
-  
+
     china_keywords = [
         # Englisch
         "china", "beijing", "shanghai", "hong kong", "xi jinping", "taiwan", "pla",
@@ -65,6 +67,7 @@ def fetch_news(feed_url, max_items=10):
         "bonus", "betting", "sportsbook", "promo code", "odds", "bet365", "casino",
         "gewinnspiel", "wetten", "lotterie"
     ]
+
     articles = []
     for entry in feed.entries[:max_items]:
         title = entry.title.lower()
@@ -72,6 +75,7 @@ def fetch_news(feed_url, max_items=10):
         if any(keyword in title for keyword in china_keywords) and not any(bad in title for bad in excluded_keywords):
             articles.append(f"• {entry.title} ({link})")
     return articles
+
 def fetch_latest_nbs_data():
     """Holt die neuesten Veröffentlichungen vom Statistikamt der VR China (NBS)."""
     url = "https://www.stats.gov.cn/sj/zxfb/"
@@ -82,8 +86,7 @@ def fetch_latest_nbs_data():
         soup = BeautifulSoup(response.text, "html.parser")
         items = []
 
-        # Artikel-Container: ul.list_009 > li
-        for li in soup.select("ul.list_009 li")[:5]:  # Nur die ersten 5 prüfen
+        for li in soup.select("ul.list_009 li")[:5]:  # nur die ersten 5 Beiträge prüfen
             a = li.find("a")
             if a and a.text:
                 title = a.text.strip()
@@ -93,16 +96,18 @@ def fetch_latest_nbs_data():
     except Exception as e:
         return [f"❌ Fehler beim Abrufen der NBS-Daten: {e}"]
 
-  # === NBS: Statistikamt China ===
-    briefing.append("\n## 📈 NBS – Nationale Statistikdaten")
-    nbs_items = fetch_latest_nbs_data()
-    briefing.extend(nbs_items)
-
 def generate_briefing(feeds):
     """Erstellt das tägliche China-Briefing als Text."""
     date_str = datetime.now().strftime("%d. %B %Y")
     briefing = [f"Guten Morgen, Hado!\n\n🗓️ {date_str}\n\n"]
     briefing.append("📬 Dies ist dein tägliches China-Briefing.\n")
+
+    # === NBS: Statistikamt China ===
+    briefing.append("\n## 📈 NBS – Nationale Statistikdaten")
+    nbs_items = fetch_latest_nbs_data()
+    briefing.extend(nbs_items)
+
+    # === RSS-Feeds ===
     for source, url in feeds.items():
         briefing.append(f"\n## {source}")
         try:
@@ -113,6 +118,7 @@ def generate_briefing(feeds):
                 briefing.append("Keine aktuellen Artikel gefunden.")
         except Exception as e:
             briefing.append(f"Fehler beim Abrufen: {e}")
+
     briefing.append("\nEinen erfolgreichen Tag! 🌟")
     return "\n".join(briefing)
 
