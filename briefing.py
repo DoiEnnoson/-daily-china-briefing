@@ -14,22 +14,34 @@ config_dict = dict(pair.split("=", 1) for pair in pairs)
 
 # 📡 RSS-Feeds der Nachrichtenquellen
 feeds = {
+    # Englischsprachig (bestehend)
     "Wall Street Journal": "https://feeds.a.dj.com/rss/RSSWorldNews.xml",
     "New York Post": "https://nypost.com/feed/",
     "Bloomberg": "https://www.bloomberg.com/feed/podcast/next_china.xml",
     "Financial Times": "https://www.ft.com/?format=rss",
     "Reuters": "https://www.reutersagency.com/feed/?best-topics=china&post_type=best",
     "The Guardian": "https://www.theguardian.com/world/china/rss",
-    "Nikkei Asia": "https://asia.nikkei.com/rss/feed/nar"
+    "Nikkei Asia": "https://asia.nikkei.com/rss/feed/nar",
+
+    # Neue deutschsprachige Feeds
+    "Welt": "https://www.welt.de/feeds/section/wirtschaft.rss",
+    "FAZ": "https://www.faz.net/rss/aktuell/",
+    "Frankfurter Rundschau": "https://www.fr.de/rss.xml",
+    "Tagesspiegel": "https://www.tagesspiegel.de/rss.xml",
+    "Der Standard": "https://www.derstandard.at/rss"
 }
 
 def fetch_news(feed_url, max_items=10):
     """Ruft Nachrichtenartikel ab, filtert nach China-Bezug & entfernt Werbung."""
     feed = feedparser.parse(feed_url)
-    china_keywords = [
-        "china", "beijing", "shanghai", "hong kong", "li qiang", "xi jinping",
-        "taiwan", "cpc", "communist party", "pla", "brics", "belt and road",
-        "chinese", "macau", "sino-", "prc", "tencent", "alibaba", "huawei", "byd"
+   china_keywords = [
+    # englisch
+    "china", "beijing", "shanghai", "hong kong", "xi jinping", "taiwan", "pla",
+    "cpc", "communist party", "prc", "belt and road", "huawei", "byd", "tiktok",
+    # deutsch
+    "china", "peking", "shanghai", "hongkong", "xi jinping", "taiwan", "kpch",
+    "volksbefreiungsarmee", "seidenstraße", "huawei", "alibaba", "byd", "tiktok"
+]
     ]
     excluded_keywords = [
         "bonus", "betting", "sportsbook", "promo code", "odds", "bet365", "casino"
