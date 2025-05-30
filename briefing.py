@@ -1,54 +1,70 @@
 import os
 import smtplib
+import feedparser
+from datetime import datetime
 from email.mime.text import MIMEText
 
-# Konfiguration aus ENV laden
+# CONFIG-Secret laden
 config = os.getenv("CONFIG")
-if not config:
-    raise ValueError("CONFIG environment variable not found!")
-
 pairs = config.split(";")
 config_dict = dict(pair.split("=", 1) for pair in pairs)
 
-# Beispiel-Inhalt für das Briefing
-briefing_content = """
-Guten Morgen, Hado
+# Mail-Zugangsdaten
+openai_api_key = config_dict["OPENAI_API_KEY"]  # Noch nicht genutzt, später für Zusammenfassungen
+email_host = config_dict["EMAIL_HOST"]
+email_port = int(config_dict["EMAIL_PORT"])
+email_user = config_dict["EMAIL_USER"]
+email_password = config_dict["EMAIL_PASSWORD"]
+email_to = config_dict["EMAIL_TO"]
 
-📅 Dies ist dein tägliches China-Briefing – Testversion.
+# RSS-Feeds
+feeds = {
+    "Wall Street Journal": "https://feeds.a.dj.com/rss/RSSWorldNews.xml",
+    "New York Post": "https://nypost.com/feed/",
+    "Bloomberg": "https://www.bloomberg.com/feed/podcast/next_china.xml",
+    "Financial Times": "https://www.ft.com/?format=rss",
+    "Reuters": "https://www.reutersagency.com/feed/?best-topics=china&post_type=best",
+    "The Guardian": "https://www.theguardian.com/world/china/rss",
+    "Nikkei Asia": "https://asia.nikkei.com/rss/feed/nar"
+}
 
-🌏 Wirtschaft:
-– Chinas Industrieproduktion stieg im April um 6,7 % im Jahresvergleich.
-– Tesla senkt erneut die Preise in China – Konkurrenzdruck durch BYD wächst.
+def fetch_news(feed_url, max_items=3):
+    feed = feedparser.parse(feed_url)
+    articles = []
+    for entry in feed.entries[:max_items]:
+        title = entry.title
+        link = entry.link
+        articles.append(f"• {title} ({link})")
+    return articles
 
-🏛️ Politik:
-– Premier Li Qiang empfängt eine Delegation aus Deutschland.
-– Hongkongs Sicherheitsgesetz sorgt für neue Spannungen mit den USA.
+def generate_briefing(feeds):
+    date_str = datetime.now().strftime("%d. %B %Y")
+    briefing = [f"# 📰 Daily China Briefing – {date_str}\n"]
+    for source, url in feeds.items():
+        briefing.append(f"## {source}")
+        try:
+            articles = fetch_news(url)
+            if articles:
+                briefing.extend(articles)
+            else:
+                briefing.append("Keine aktuellen Artikel gefunden.")
+        except Exception as e:
+            briefing.append(f"Fehler beim Abrufen: {e}")
+        briefing.append("")
+    return "\n".join(briefing)
 
-🌐 Außenbeziehungen:
-– China und Brasilien vertiefen ihre Kooperation im Agrarsektor.
-– Neue Spannungen im Südchinesischen Meer mit den Philippinen.
+def send_email(subject, content):
+    msg = MIMEText(content, "plain", "utf-8")
+    msg["Subject"] = subject
+    msg["From"] = email_user
+    msg["To"] = email_to
 
-🧪 Dies ist ein Testinhalt. Morgen bekommst du echte Daten 😉
-
-Einen erfolgreichen neuen Tag! 
-"""
-
-print("✅ CONFIG wurde geladen.")
-print("🧠 Erzeuge Briefing...")
-
-# E-Mail vorbereiten
-msg = MIMEText(briefing_content)
-msg["Subject"] = "Dein tägliches China-Briefing"
-msg["From"] = config_dict["EMAIL_USER"]
-msg["To"] = config_dict["EMAIL_TO"]
-
-print("📤 Sende E-Mail...")
-
-try:
-    with smtplib.SMTP(config_dict["EMAIL_HOST"], int(config_dict["EMAIL_PORT"])) as server:
+    with smtplib.SMTP(email_host, email_port) as server:
         server.starttls()
-        server.login(config_dict["EMAIL_USER"], config_dict["EMAIL_PASSWORD"])
+        server.login(email_user, email_password)
         server.send_message(msg)
-    print("✅ E-Mail wurde gesendet!")
-except Exception as e:
-    print("❌ Fehler beim Senden der E-Mail:", str(e))
+
+if __name__ == "__main__":
+    content = generate_briefing(feeds)
+    send_email("📰 Daily China Briefing", content)
+    print("Briefing verschickt.")
