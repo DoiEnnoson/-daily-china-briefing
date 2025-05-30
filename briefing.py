@@ -34,17 +34,19 @@ feeds = {
 def fetch_news(feed_url, max_items=10):
     """Ruft Nachrichtenartikel ab, filtert nach China-Bezug & entfernt Werbung."""
     feed = feedparser.parse(feed_url)
-   china_keywords = [
-    # englisch
-    "china", "beijing", "shanghai", "hong kong", "xi jinping", "taiwan", "pla",
-    "cpc", "communist party", "prc", "belt and road", "huawei", "byd", "tiktok",
-    # deutsch
-    "china", "peking", "shanghai", "hongkong", "xi jinping", "taiwan", "kpch",
-    "volksbefreiungsarmee", "seidenstraße", "huawei", "alibaba", "byd", "tiktok"
-]
+  
+    china_keywords = [
+        # Englisch
+        "china", "beijing", "shanghai", "hong kong", "xi jinping", "taiwan", "pla",
+        "cpc", "communist party", "prc", "belt and road", "huawei", "byd", "tiktok",
+        # Deutsch
+        "china", "peking", "shanghai", "hongkong", "xi jinping", "taiwan", "kpch",
+        "volksbefreiungsarmee", "seidenstraße", "huawei", "alibaba", "byd", "tiktok"
     ]
+
     excluded_keywords = [
-        "bonus", "betting", "sportsbook", "promo code", "odds", "bet365", "casino"
+        "bonus", "betting", "sportsbook", "promo code", "odds", "bet365", "casino",
+        "gewinnspiel", "wetten", "lotterie"
     ]
     articles = []
     for entry in feed.entries[:max_items]:
