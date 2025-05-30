@@ -24,17 +24,21 @@ feeds = {
 }
 
 def fetch_news(feed_url, max_items=10):
-    """Ruft Nachrichtenartikel von einem RSS-Feed ab und filtert auf China-Bezug."""
+    """Ruft Nachrichtenartikel ab, filtert nach China-Bezug & entfernt Werbung."""
     feed = feedparser.parse(feed_url)
     china_keywords = [
         "china", "beijing", "shanghai", "hong kong", "li qiang", "xi jinping",
-        "taiwan", "cpc", "communist party", "pla", "brics", "belt and road"
+        "taiwan", "cpc", "communist party", "pla", "brics", "belt and road",
+        "chinese", "macau", "sino-", "prc", "tencent", "alibaba", "huawei", "byd"
+    ]
+    excluded_keywords = [
+        "bonus", "betting", "sportsbook", "promo code", "odds", "bet365", "casino"
     ]
     articles = []
     for entry in feed.entries[:max_items]:
         title = entry.title.lower()
         link = entry.link
-        if any(keyword in title for keyword in china_keywords):
+        if any(keyword in title for keyword in china_keywords) and not any(bad in title for bad in excluded_keywords):
             articles.append(f"• {entry.title} ({link})")
     return articles
 
