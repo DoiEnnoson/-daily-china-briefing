@@ -23,15 +23,21 @@ feeds = {
     "Nikkei Asia": "https://asia.nikkei.com/rss/feed/nar"
 }
 
-def fetch_news(feed_url, max_items=3):
-    """Ruft Nachrichtenartikel von einem RSS-Feed ab."""
+def fetch_news(feed_url, max_items=10):
+    """Ruft Nachrichtenartikel von einem RSS-Feed ab und filtert auf China-Bezug."""
     feed = feedparser.parse(feed_url)
+    china_keywords = [
+        "china", "beijing", "shanghai", "hong kong", "li qiang", "xi jinping",
+        "taiwan", "cpc", "communist party", "pla", "brics", "belt and road"
+    ]
     articles = []
     for entry in feed.entries[:max_items]:
-        title = entry.title
+        title = entry.title.lower()
         link = entry.link
-        articles.append(f"• {title} ({link})")
+        if any(keyword in title for keyword in china_keywords):
+            articles.append(f"• {entry.title} ({link})")
     return articles
+
 
 def generate_briefing(feeds):
     """Erstellt das tägliche China-Briefing als Text."""
