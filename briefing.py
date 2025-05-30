@@ -72,7 +72,31 @@ def fetch_news(feed_url, max_items=10):
         if any(keyword in title for keyword in china_keywords) and not any(bad in title for bad in excluded_keywords):
             articles.append(f"• {entry.title} ({link})")
     return articles
+def fetch_latest_nbs_data():
+    """Holt die neuesten Veröffentlichungen vom Statistikamt der VR China (NBS)."""
+    url = "https://www.stats.gov.cn/sj/zxfb/"
+    headers = {"User-Agent": "Mozilla/5.0"}
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+        items = []
 
+        # Artikel-Container: ul.list_009 > li
+        for li in soup.select("ul.list_009 li")[:5]:  # Nur die ersten 5 prüfen
+            a = li.find("a")
+            if a and a.text:
+                title = a.text.strip()
+                link = "https://www.stats.gov.cn" + a["href"]
+                items.append(f"• {title} ({link})")
+        return items if items else ["Keine aktuellen Veröffentlichungen gefunden."]
+    except Exception as e:
+        return [f"❌ Fehler beim Abrufen der NBS-Daten: {e}"]
+
+  # === NBS: Statistikamt China ===
+    briefing.append("\n## 📈 NBS – Nationale Statistikdaten")
+    nbs_items = fetch_latest_nbs_data()
+    briefing.extend(nbs_items)
 
 def generate_briefing(feeds):
     """Erstellt das tägliche China-Briefing als Text."""
