@@ -139,18 +139,18 @@ def fetch_latest_nbs_data():
 
 def fetch_index_data():
     """Liefert Schlussstand & Veränderung (Pfeil + %) für China-Indizes."""
-indices = {
-    "Hang Seng Index (HSI)": "^HSI",
-    "Hang Seng China Enterprises (HSCEI)": "^HSCE",
-    "SSE Composite Index (Shanghai)": "000001.SS",
-    "Shenzhen Component Index": "399001.SZ"
-}
+    indices = {
+        "Hang Seng Index (HSI)": "^HSI",
+        "Hang Seng China Enterprises (HSCEI)": "^HSCE",
+        "SSE Composite Index (Shanghai)": "000001.SS",
+        "Shenzhen Component Index": "399001.SZ"
+    }
 
     headers = {
         "User-Agent": "Mozilla/5.0"
-}
-    results = []
+    }
 
+    results = []
     for name, symbol in indices.items():
         url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=2d"
         try:
@@ -168,7 +168,6 @@ indices = {
             change = last_close - prev_close
             change_pct = (change / prev_close) * 100
 
-            # Richtungssymbol
             if abs(change_pct) < 0.01:
                 symbol_arrow = "→"
             elif change > 0:
@@ -182,8 +181,6 @@ indices = {
         except Exception as e:
             results.append(f"❌ {name}: Fehler beim Abrufen ({e})")
     return results
-
-
 
 
 def generate_briefing(feeds):
