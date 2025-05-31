@@ -95,8 +95,8 @@ def fetch_news(feed_url, max_items=10):
     """Ruft Nachrichtenartikel ab, filtert nach China-Bezug & entfernt Werbung."""
     feed = feedparser.parse(feed_url)
 
-    china_keywords = [
-        # Englisch
+     = [
+        #china_keywords Englisch
         "china", "beijing", "shanghai", "hong kong", "xi jinping", "taiwan", "pla",
         "cpc", "communist party", "prc", "belt and road", "huawei", "byd", "tiktok",
         # Deutsch
@@ -148,9 +148,9 @@ indices = {
 
     headers = {
         "User-Agent": "Mozilla/5.0"
-    }
-
+}
     results = []
+
     for name, symbol in indices.items():
         url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=2d"
         try:
