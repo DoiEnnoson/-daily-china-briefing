@@ -169,6 +169,15 @@ def fetch_latest_nbs_data():
     except Exception as e:
         return [f"❌ Fehler beim Abrufen der NBS-Daten: {e}"]
 
+def fetch_raw_feed(feed_url, max_items=5):
+    """Einfacher Abruf von Artikeln ohne Filterung."""
+    feed = feedparser.parse(feed_url)
+    articles = []
+    for entry in feed.entries[:max_items]:
+        articles.append(f"• {entry.title} ({entry.link})")
+    return articles
+
+
 
 def fetch_index_data():
     indices = {
