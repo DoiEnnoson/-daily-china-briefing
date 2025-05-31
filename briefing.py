@@ -138,7 +138,7 @@ def fetch_latest_nbs_data():
         return [f"❌ Fehler beim Abrufen der NBS-Daten: {e}"]
 
 def fetch_index_data():
-    """Liefert Schlussstände von HSI, HSCEI, SHCOMP, SZCOMP von Yahoo Finance."""
+    """Liefert Schlussstand & Veränderung (Pfeil + %) für China-Indizes."""
     indices = {
         "Hang Seng Index (HSI)": "^HSI",
         "Hang Seng China Enterprises (HSCEI)": "^HSCE",
@@ -152,16 +152,35 @@ def fetch_index_data():
 
     results = []
     for name, symbol in indices.items():
-        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=1d"
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=2d"
         try:
             response = requests.get(url, headers=headers, timeout=10)
             response.raise_for_status()
             data = response.json()
-            close = data["chart"]["result"][0]["indicators"]["quote"][0]["close"][0]
-            results.append(f"• {name}: {round(close, 2)}")
+
+            closes = data["chart"]["result"][0]["indicators"]["quote"][0]["close"]
+            if len(closes) < 2 or closes[-2] is None or closes[-1] is None:
+                raise ValueError("Nicht genügend valide Daten für Vergleich")
+
+            prev_close = closes[-2]
+            last_close = closes[-1]
+            change = last_close - prev_close
+            change_pct = (change / prev_close) * 100
+
+            # Richtungssymbol & Farbe
+            if abs(change_pct) < 0.01:
+                symbol_arrow = "→"
+            elif change > 0:
+                symbol_arrow = "↑"
+            else:
+                symbol_arrow = "↓"
+
+            formatted = f"• {name}: {round(last_close, 2)} {symbol_arrow} ({change_pct:+.2f} %)"
+            results.append(formatted)
         except Exception as e:
             results.append(f"❌ {name}: Fehler beim Abrufen ({e})")
     return results
+
 
 
 def generate_briefing(feeds):
