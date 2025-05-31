@@ -192,6 +192,24 @@ def generate_briefing(feeds):
         except Exception as e:
             briefing.append(f"Fehler beim Abrufen: {e}")
 
+        # === Substack-Feeds ===
+    briefing.append("\n## 📬 China-Fokus: Substack-Briefings")
+    for source, url in feeds_substack.items():
+        briefing.append(f"\n### {source}")
+        try:
+            # Bei bestimmten Feeds nur China-relevante Artikel anzeigen
+            if "Rare Earth Observer" in source or "Interconnected" in source:
+                articles = fetch_substack_articles(url, filter_china=True)
+            else:
+                articles = fetch_substack_articles(url)
+            if articles:
+                briefing.extend(articles)
+            else:
+                briefing.append("Keine aktuellen Artikel gefunden.")
+        except Exception as e:
+            briefing.append(f"Fehler beim Abrufen: {e}")
+
+
     briefing.append("\nEinen erfolgreichen Tag! 🌟")
     return "\n".join(briefing)
 
