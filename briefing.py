@@ -139,12 +139,12 @@ def fetch_latest_nbs_data():
 
 def fetch_index_data():
     """Liefert Schlussstand & Veränderung (Pfeil + %) für China-Indizes."""
-    indices = {
-        "Hang Seng Index (HSI)": "^HSI",
-        "Hang Seng China Enterprises (HSCEI)": "^HSCE",
-        "SSE Composite Index (Shanghai)": "000001.SS",
-        "Shenzhen Composite Index": "399106.SZ"
-    }
+indices = {
+    "Hang Seng Index (HSI)": "^HSI",
+    "Hang Seng China Enterprises (HSCEI)": "^HSCE",
+    "SSE Composite Index (Shanghai)": "000001.SS",
+    "Shenzhen Component Index": "399001.SZ"
+}
 
     headers = {
         "User-Agent": "Mozilla/5.0"
