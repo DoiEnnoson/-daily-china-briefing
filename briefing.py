@@ -76,27 +76,12 @@ feeds_substack = {
     "Observing China": "https://www.observingchina.org.uk/feed"
 }
 
-def fetch_substack_articles(feed_url, max_items=5, filter_china=False):
-    """Ruft Substack-Artikel ab, optional mit China-Filter."""
-    feed = feedparser.parse(feed_url)
-    china_keywords = ["china", "beijing", "xi", "ccp", "taiwan", "hong kong", "shanghai", "cpc", "prc", "chinese"]
-
-    articles = []
-    for entry in feed.entries[:max_items]:
-        title = entry.title
-        if filter_china:
-            if not any(kw in title.lower() for kw in china_keywords):
-                continue
-        articles.append(f"• {title} ({entry.link})")
-    return articles
-
-
 def fetch_news(feed_url, max_items=10):
     """Ruft Nachrichtenartikel ab, filtert nach China-Bezug & entfernt Werbung."""
     feed = feedparser.parse(feed_url)
 
-     = [
-        #china_keywords Englisch
+    china_keywords = [
+        # Englisch
         "china", "beijing", "shanghai", "hong kong", "xi jinping", "taiwan", "pla",
         "cpc", "communist party", "prc", "belt and road", "huawei", "byd", "tiktok",
         # Deutsch
@@ -116,6 +101,7 @@ def fetch_news(feed_url, max_items=10):
         if any(keyword in title for keyword in china_keywords) and not any(bad in title for bad in excluded_keywords):
             articles.append(f"• {entry.title} ({link})")
     return articles
+
 
 def fetch_latest_nbs_data():
     """Holt die neuesten Veröffentlichungen vom Statistikamt der VR China (NBS)."""
