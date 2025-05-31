@@ -71,6 +71,13 @@ feeds_substack = {
 }
 
 # ===============================
+# 📰 Weitere China-Medien
+# ===============================
+feeds_sixthtone = {
+    "Sixth Tone": "https://www.sixthtone.com/rss"
+}
+
+# ===============================
 # 📰 SCMP & Yicai (mit Relevanz-Scoring)
 # ===============================
 feeds_scmp_yicai = {
@@ -228,6 +235,19 @@ def generate_briefing(feeds):
             briefing.extend(articles or ["Keine aktuellen Artikel gefunden."])
         except Exception as e:
             briefing.append(f"Fehler beim Abrufen: {e}")
+
+        # === Sixth Tone ===
+    briefing.append("\n## Sixth Tone – Gesellschaft, Alltag & Tiefe Einblicke")
+    for source, url in feeds_sixthtone.items():
+        try:
+            articles = fetch_news(url, max_items=5)
+            if articles:
+                briefing.extend(articles)
+            else:
+                briefing.append("Keine aktuellen Artikel gefunden.")
+        except Exception as e:
+            briefing.append(f"Fehler beim Abrufen: {e}")
+
 
     # SCMP/Yicai
     briefing.append("\n## SCMP – Top-Themen")
