@@ -236,17 +236,18 @@ def generate_briefing(feeds):
         except Exception as e:
             briefing.append(f"Fehler beim Abrufen: {e}")
 
-        # === Sixth Tone ===
+          # === Sixth Tone ===
     briefing.append("\n## Sixth Tone – Gesellschaft, Alltag & Tiefe Einblicke")
     for source, url in feeds_sixthtone.items():
         try:
-            articles = fetch_news(url, max_items=5)
+            articles = fetch_raw_feed(url, max_items=5)
             if articles:
                 briefing.extend(articles)
             else:
                 briefing.append("Keine aktuellen Artikel gefunden.")
         except Exception as e:
             briefing.append(f"Fehler beim Abrufen: {e}")
+
 
 
     # SCMP/Yicai
