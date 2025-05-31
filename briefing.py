@@ -1,9 +1,11 @@
 import os
 import smtplib
 import feedparser
+import json
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
+
 from email.mime.text import MIMEText
 
 # 🔐 Konfiguration aus ENV-Variable "CONFIG"
@@ -96,11 +98,37 @@ def fetch_latest_nbs_data():
     except Exception as e:
         return [f"❌ Fehler beim Abrufen der NBS-Daten: {e}"]
 
+def fetch_index_data():
+    """Liefert Schlussstände von HSI, HSCEI, SHCOMP, SZCOMP von Yahoo Finance."""
+    indices = {
+        "Hang Seng Index (HSI)": "^HSI",
+        "Hang Seng China Enterprises (HSCEI)": "^HSCE",
+        "SSE Composite Index (Shanghai)": "000001.SS",
+        "Shenzhen Composite Index": "399106.SZ"
+    }
+
+    results = []
+    for name, symbol in indices.items():
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=1d"
+        try:
+            response = requests.get(url, timeout=10)
+            data = response.json()
+            close = data["chart"]["result"][0]["indicators"]["quote"][0]["close"][0]
+            results.append(f"• {name}: {round(close, 2)}")
+        except Exception as e:
+            results.append(f"❌ {name}: Fehler beim Abrufen ({e})")
+    return results
+
 def generate_briefing(feeds):
     """Erstellt das tägliche China-Briefing als Text."""
     date_str = datetime.now().strftime("%d. %B %Y")
     briefing = [f"Guten Morgen, Hado!\n\n🗓️ {date_str}\n\n"]
     briefing.append("📬 Dies ist dein tägliches China-Briefing.\n")
+
+       # === Börsenindexdaten ===
+    briefing.append("\n## 📊 Börsenindizes China (08:00 Uhr MESZ)")
+    index_data = fetch_index_data()
+    briefing.extend(index_data)
 
     # === NBS: Statistikamt China ===
     briefing.append("\n## 📈 NBS – Nationale Statistikdaten")
