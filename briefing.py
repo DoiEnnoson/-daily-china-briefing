@@ -76,6 +76,15 @@ feeds_substack = {
     "Observing China": "https://www.observingchina.org.uk/feed"
 }
 
+# ===============================
+# 📰 SCMP & Yicai (mit Relevanz-Scoring)
+# ===============================
+feeds_scmp_yicai = {
+    "SCMP": "https://www.scmp.com/rss/91/feed",
+    "Yicai Global": "https://www.yicaiglobal.com/rss/news"
+}
+
+
 def fetch_news(feed_url, max_items=10):
     """Ruft Nachrichtenartikel ab, filtert nach China-Bezug & entfernt Werbung."""
     feed = feedparser.parse(feed_url)
@@ -101,6 +110,37 @@ def fetch_news(feed_url, max_items=10):
         if any(keyword in title for keyword in china_keywords) and not any(bad in title for bad in excluded_keywords):
             articles.append(f"• {entry.title} ({link})")
     return articles
+
+def fetch_ranked_articles(feed_url, max_items=10, top_n=5):
+    """Bewertet SCMP/Yicai-Artikel nach Relevanz und gibt die Top-N zurück."""
+    feed = feedparser.parse(feed_url)
+    important_keywords = [
+        "xi", "premier li", "taiwan", "nbs", "gdp", "exports", "export", "imports", "sanctions",
+        "policy", "housing", "real estate", "property", "home prices", "house prices", "house market",
+        "economy", "tech", "semiconductors", "ai", "tariffs"
+    ]
+    positive_modifiers = [
+        "explainer", "analysis", "opinion", "data", "policy", "official", "market", "feature"
+    ]
+    negative_keywords = [
+        "celebrity", "video", "weird", "love", "dog", "bizarre", "tourist", "fashion", "movie", "series"
+    ]
+    scored_articles = []
+    for entry in feed.entries[:max_items]:
+        title = entry.title.lower()
+        score = 0
+        if any(kw in title for kw in important_keywords):
+            score += 2
+        if any(mod in title for mod in positive_modifiers):
+            score += 1
+        if any(bad in title for bad in negative_keywords):
+            score -= 2
+        if len(title.split()) <= 4:
+            score -= 1
+        scored_articles.append((score, f"• {entry.title} ({entry.link})"))
+    scored_articles.sort(reverse=True, key=lambda x: x[0])
+    return [item[1] for item in scored_articles[:top_n]]
+
 
 
 def fetch_latest_nbs_data():
@@ -213,6 +253,15 @@ def generate_briefing(feeds):
                 briefing.append("Keine aktuellen Artikel gefunden.")
         except Exception as e:
             briefing.append(f"Fehler beim Abrufen: {e}")
+
+        # === SCMP & Yicai Global ===
+    briefing.append("\n## SCMP – Top-Themen")
+    scmp_items = fetch_ranked_articles(feeds_scmp_yicai["SCMP"])
+    briefing.extend(scmp_items if scmp_items else ["Keine relevanten Artikel gefunden."])
+
+    briefing.append("\n## Yicai Global – Top-Themen")
+    yicai_items = fetch_ranked_articles(feeds_scmp_yicai["Yicai Global"])
+    briefing.extend(yicai_items if yicai_items else ["Keine relevanten Artikel gefunden."])
 
 
     briefing.append("\nEinen erfolgreichen Tag! 🌟")
