@@ -159,15 +159,16 @@ def fetch_index_data():
             data = response.json()
 
             closes = data["chart"]["result"][0]["indicators"]["quote"][0]["close"]
-            if len(closes) < 2 or closes[-2] is None or closes[-1] is None:
-                raise ValueError("Nicht genügend valide Daten für Vergleich")
+            if len(closes) < 2 or not all(closes[-2:]):
+                results.append(f"❌ {name}: Keine gültigen Kursdaten verfügbar.")
+                continue
 
             prev_close = closes[-2]
             last_close = closes[-1]
             change = last_close - prev_close
             change_pct = (change / prev_close) * 100
 
-            # Richtungssymbol & Farbe
+            # Richtungssymbol
             if abs(change_pct) < 0.01:
                 symbol_arrow = "→"
             elif change > 0:
@@ -177,9 +178,11 @@ def fetch_index_data():
 
             formatted = f"• {name}: {round(last_close, 2)} {symbol_arrow} ({change_pct:+.2f} %)"
             results.append(formatted)
+
         except Exception as e:
             results.append(f"❌ {name}: Fehler beim Abrufen ({e})")
     return results
+
 
 
 
