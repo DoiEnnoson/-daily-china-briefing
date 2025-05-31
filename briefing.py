@@ -52,6 +52,45 @@ feeds = {
     "Lowy Institute": "https://www.lowyinstitute.org/the-interpreter/rss.xml"
 }
 
+    # ===============================
+    # 📬 Substack-Briefings
+    # ===============================
+
+feeds_substack = {
+    "Sinocism – Bill Bishop": "https://sinocism.com/feed",
+    "ChinaTalk – Jordan Schneider": "https://chinatalk.substack.com/feed",
+    "Pekingology": "https://pekingnology.substack.com/feed",
+    "The Rare Earth Observer": "https://treo.substack.com/feed",  # China-Filter nötig
+    "Baiguan": "https://www.baiguan.news/feed",
+    "Bert’s Newsletter": "https://berthofman.substack.com/feed",
+    "Hong Kong Money Never Sleeps": "https://moneyhk.substack.com/feed",
+    "Tracking People’s Daily": "https://trackingpeoplesdaily.substack.com/feed",
+    "Interconnected": "https://interconnect.substack.com/feed",  # China-Filter nötig
+    "Ginger River Review": "https://www.gingerriver.com/feed",
+    "The East is Read": "https://www.eastisread.com/feed",
+    "Inside China – Fred Gao": "https://www.fredgao.com/feed",
+    "China Business Spotlight": "https://chinabusinessspotlight.substack.com/feed",
+    "ChinAI Newsletter": "https://chinai.substack.com/feed",
+    "Tech Buzz China Insider": "https://techbuzzchina.substack.com/feed",
+    "Sinical China": "https://www.sinicalchina.com/feed",
+    "Observing China": "https://www.observingchina.org.uk/feed"
+}
+
+def fetch_substack_articles(feed_url, max_items=5, filter_china=False):
+    """Ruft Substack-Artikel ab, optional mit China-Filter."""
+    feed = feedparser.parse(feed_url)
+    china_keywords = ["china", "beijing", "xi", "ccp", "taiwan", "hong kong", "shanghai", "cpc", "prc", "chinese"]
+
+    articles = []
+    for entry in feed.entries[:max_items]:
+        title = entry.title
+        if filter_china:
+            if not any(kw in title.lower() for kw in china_keywords):
+                continue
+        articles.append(f"• {title} ({entry.link})")
+    return articles
+
+
 def fetch_news(feed_url, max_items=10):
     """Ruft Nachrichtenartikel ab, filtert nach China-Bezug & entfernt Werbung."""
     feed = feedparser.parse(feed_url)
