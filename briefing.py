@@ -107,17 +107,23 @@ def fetch_index_data():
         "Shenzhen Composite Index": "399106.SZ"
     }
 
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
+
     results = []
     for name, symbol in indices.items():
         url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=1d"
         try:
-            response = requests.get(url, timeout=10)
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
             data = response.json()
             close = data["chart"]["result"][0]["indicators"]["quote"][0]["close"][0]
             results.append(f"• {name}: {round(close, 2)}")
         except Exception as e:
             results.append(f"❌ {name}: Fehler beim Abrufen ({e})")
     return results
+
 
 def generate_briefing(feeds):
     """Erstellt das tägliche China-Briefing als Text."""
