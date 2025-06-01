@@ -86,7 +86,6 @@ def fetch_news(url, max_items=20):
 
         # China-Filter
         if any(kw in combined for kw in china_keywords):
-            # Zusätzlicher Ausschlussfilter (Blacklist gegen Sport/Nazis)
             if not any(bad in combined for bad in [
                 "rapid", "lask", "bundesliga", "champions league", "eurovision", 
                 "gaza", "selenskyj", "transgender", "elon musk", "donau-dinos",
@@ -96,6 +95,15 @@ def fetch_news(url, max_items=20):
 
     return articles or ["Keine aktuellen China-Artikel gefunden."]
 
+def fetch_substack_articles(url):
+    return fetch_news(url)
+
+def fetch_ranked_articles(url):
+    return fetch_news(url)
+
+def fetch_latest_nbs_data():
+    # Platzhalter: spätere API-Anbindung möglich
+    return ["Keine aktuellen Veröffentlichungen gefunden."]
 
 def fetch_index_data():
     indices = {
