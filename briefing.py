@@ -75,9 +75,34 @@ def is_china_related(title):
     title_lower = title.lower()
     return any(kw in title_lower for kw in china_keywords)
 
-# === Indexdaten (manuell, später ersetzbar) ===
+import yfinance as yf
+
 def fetch_index_data():
-    return ["• Hang Seng Index (HSI): 23289.77 ↓ (-1.20 %)"]
+    index_symbols = {
+        "Hang Seng Index (HSI)": "^HSI",
+        "Hang Seng China Enterprises Index (HSCEI)": "^HSCE",
+        "Shanghai Composite Index (SSE)": "000001.SS",
+        "Shenzhen Component Index (SZSE)": "399001.SZ"
+    }
+
+    results = []
+
+    for name, symbol in index_symbols.items():
+        try:
+            data = yf.Ticker(symbol).history(period="1d")
+            if not data.empty:
+                latest = data.iloc[-1]
+                close = latest["Close"]
+                prev_close = latest["Open"]
+                change_pct = ((close - prev_close) / prev_close) * 100
+                direction = "↑" if change_pct >= 0 else "↓"
+                results.append(f"• {name}: {close:.2f} {direction} ({change_pct:.2f} %)")
+            else:
+                results.append(f"• {name}: Keine Daten gefunden.")
+        except Exception as e:
+            results.append(f"• {name}: Fehler beim Abrufen ({e})")
+    
+    return results
 
 # === Artikel aus RSS holen (mit China-Filter) ===
 def fetch_news(url, max_items=15):
