@@ -1,13 +1,12 @@
 import os
 import smtplib
 import feedparser
-import json
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 from email.mime.text import MIMEText
 
-# 🔐 Konfiguration aus ENV-Variable "CONFIG"
+# === 🔐 Konfiguration aus ENV-Variable ===
 config = os.getenv("CONFIG")
 if not config:
     raise ValueError("CONFIG environment variable not found!")
@@ -15,9 +14,7 @@ if not config:
 pairs = config.split(";")
 config_dict = dict(pair.split("=", 1) for pair in pairs)
 
-# ===============================
-# 📡 RSS-Feeds der Nachrichtenquellen
-# ===============================
+# === Nachrichtenquellen ===
 feeds = {
     "Wall Street Journal": "https://feeds.a.dj.com/rss/RSSWorldNews.xml",
     "New York Post": "https://nypost.com/feed/",
@@ -42,9 +39,52 @@ feeds = {
     "Lowy Institute": "https://www.lowyinstitute.org/the-interpreter/rss.xml"
 }
 
-# ===============================
-# 📡 Stimmen & Perspektiven von X
-# ===============================
+# === Substack-Feeds ===
+feeds_substack = {
+    "Sinocism – Bill Bishop": "https://sinocism.com/feed",
+    "ChinaTalk – Jordan Schneider": "https://chinatalk.substack.com/feed",
+    "Pekingology": "https://pekingnology.substack.com/feed",
+    "The Rare Earth Observer": "https://treo.substack.com/feed",
+    "Baiguan": "https://www.baiguan.news/feed",
+    "Bert’s Newsletter": "https://berthofman.substack.com/feed",
+    "Hong Kong Money Never Sleeps": "https://moneyhk.substack.com/feed",
+    "Tracking People’s Daily": "https://trackingpeoplesdaily.substack.com/feed",
+    "Interconnected": "https://interconnect.substack.com/feed",
+    "Ginger River Review": "https://www.gingerriver.com/feed",
+    "The East is Read": "https://www.eastisread.com/feed",
+    "Inside China – Fred Gao": "https://www.fredgao.com/feed",
+    "China Business Spotlight": "https://chinabusinessspotlight.substack.com/feed",
+    "ChinAI Newsletter": "https://chinai.substack.com/feed",
+    "Tech Buzz China Insider": "https://techbuzzchina.substack.com/feed",
+    "Sinical China": "https://www.sinicalchina.com/feed",
+    "Observing China": "https://www.observingchina.org.uk/feed"
+}
+
+# === SCMP & Yicai ===
+feeds_scmp_yicai = {
+    "SCMP": "https://www.scmp.com/rss/91/feed",
+    "Yicai Global": "https://www.yicaiglobal.com/rss/news"
+}
+
+# === Placeholder-Funktionen ===
+def fetch_index_data():
+    return ["• Hang Seng Index (HSI): 23289.77 ↓ (-1.20 %)"]
+
+def fetch_news(url):
+    return []
+
+def fetch_substack_articles(feed_url):
+    return []
+
+def fetch_ranked_articles(feed_url):
+    return []
+
+def fetch_latest_nbs_data():
+    return ["Keine aktuellen Veröffentlichungen gefunden."]
+
+def fetch_recent_x_posts(account, name, url, always_include=False):
+    return [f"• {name} (@{account}) → {url}"]
+
 x_accounts = [
     {"account": "Sino_Market", "name": "CN Wire", "url": "https://x.com/Sino_Market", "always": True},
     {"account": "tonychinaupdate", "name": "China Update", "url": "https://x.com/tonychinaupdate", "always": True},
@@ -60,75 +100,43 @@ x_accounts = [
     {"account": "HuXijin_GT", "name": "Hu Xijin", "url": "https://x.com/HuXijin_GT", "always": True},
 ]
 
-# ===============================
-# 🔧 Dummy-Funktionen
-# ===============================
-def fetch_index_data():
-    return ["• Hang Seng Index (HSI): 23289.77 ↓ (-1.20 %)"]  # Dummywerte
-
-def fetch_recent_x_posts(account, name, url, always_include=False):
-    """Platzhalter-Funktion für X-Posts – später API oder Scraper einfügen."""
-    must_include = [
-        "sino_market", "tonychinaupdate", "drewryshipping", "yuantalks",
-        "brad_setser", "kennedycsis", "hanneszipfel", "briantycangco",
-        "michaelxpettis", "niubi", "haohong_cfa", "huxijin_gt"
-    ]
-    if always_include or account.lower() in must_include:
-        return [f"• {name} (@{account}) → {url}"]
-    else:
-        return []
-
-def fetch_latest_nbs_data():
-    return ["Keine aktuellen Veröffentlichungen gefunden."]  # Dummy
-
-def fetch_news(url):
-    return []  # Dummy
-
-# ===============================
-# ✨ Briefing erstellen
-# ===============================
-def generate_briefing(feeds):
+# === Briefing erzeugen ===
+def generate_briefing():
     date_str = datetime.now().strftime("%d. %B %Y")
     briefing = [f"Guten Morgen, Hado!\n\n🗓️ {date_str}\n\n"]
     briefing.append("📬 Dies ist dein tägliches China-Briefing.\n")
 
-    # === Börsendaten ===
     briefing.append("\n## 📊 Börsenindizes China (08:00 Uhr MESZ)")
-    index_data = fetch_index_data()
-    briefing.extend(index_data)
+    briefing.extend(fetch_index_data())
 
-    # === Stimmen von X ===
     briefing.append("\n## 📡 Stimmen & Perspektiven von X")
     for acc in x_accounts:
-        posts = fetch_recent_x_posts(acc["account"], acc["name"], acc["url"], always_include=acc["always"])
-        if posts:
-            briefing.extend(posts)
+        briefing.extend(fetch_recent_x_posts(acc["account"], acc["name"], acc["url"], acc["always"]))
 
-    # === NBS-Daten ===
     briefing.append("\n## 📈 NBS – Nationale Statistikdaten")
-    nbs_items = fetch_latest_nbs_data()
-    briefing.extend(nbs_items)
+    briefing.extend(fetch_latest_nbs_data())
 
-    # === Nachrichtenquellen ===
     for source, url in feeds.items():
         briefing.append(f"\n## {source}")
-        try:
-            articles = fetch_news(url)
-            if articles:
-                briefing.extend(articles)
-            else:
-                briefing.append("Keine aktuellen Artikel gefunden.")
-        except Exception as e:
-            briefing.append(f"Fehler beim Abrufen: {e}")
+        briefing.extend(fetch_news(url))
+
+    briefing.append("\n## 📬 China-Fokus: Substack-Briefings")
+    for source, url in feeds_substack.items():
+        briefing.append(f"\n### {source}")
+        briefing.extend(fetch_substack_articles(url))
+
+    briefing.append("\n## SCMP – Top-Themen")
+    briefing.extend(fetch_ranked_articles(feeds_scmp_yicai["SCMP"]))
+
+    briefing.append("\n## Yicai Global – Top-Themen")
+    briefing.extend(fetch_ranked_articles(feeds_scmp_yicai["Yicai Global"]))
 
     briefing.append("\nEinen erfolgreichen Tag! 🌟")
     return "\n".join(briefing)
 
-# ===============================
-# 🚀 Script starten
-# ===============================
+# === Starten ===
 print("🧠 Erzeuge Briefing...")
-briefing_content = generate_briefing(feeds)
+briefing_content = generate_briefing()
 
 msg = MIMEText(briefing_content, "plain", "utf-8")
 msg["Subject"] = "📰 Dein tägliches China-Briefing"
