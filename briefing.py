@@ -68,15 +68,6 @@ x_accounts = [
 ]
 
 
-    # === X/Twitter-Updates ===
-    briefing.append("\n## 📡 Stimmen & Perspektiven von X")
-    for acc in x_accounts:
-        posts = fetch_recent_x_posts(acc["account"], acc["name"], acc["url"], always_include=acc["always"])
-        if posts:
-            briefing.append(f"\n### {acc['name']} ({acc['account']})")
-            briefing.extend(posts)
-
-
 # === Beispiel: fetch_index_data (gekürzt) ===
 def fetch_index_data():
     return ["• Hang Seng Index (HSI): 23289.77 ↓ (-1.20 %)"]  # Dummywerte hier ersetzen
@@ -100,10 +91,13 @@ def generate_briefing(feeds):
     index_data = fetch_index_data()
     briefing.extend(index_data)
 
-    # === X-Marktstimmen ===
-    x_data = fetch_x_feeds()
-    briefing.append("\n## 📡 Markt-Stimmen von X")
-    briefing.extend(x_data["markets"])
+   # === X/Twitter-Updates ===
+    briefing.append("\n## 📡 Stimmen & Perspektiven von X")
+    for acc in x_accounts:
+        posts = fetch_recent_x_posts(acc["account"], acc["name"], acc["url"], always_include=acc["always"])
+        if posts:
+            briefing.append(f"\n### {acc['name']} ({acc['account']})")
+            briefing.extend(posts)
 
     # === NBS: Statistikamt China ===
     briefing.append("\n## 📈 NBS – Nationale Statistikdaten")
