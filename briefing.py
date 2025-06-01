@@ -68,18 +68,14 @@ x_accounts = [
 ]
 
 
-# === Funktion zum Einbauen von X-Feeds ===
-def fetch_x_feeds():
-    """Gibt formatierte X-Feeds nach Markt + Sonstige zurück."""
-    markets = []
-    general = []
-    for item in x_feeds:
-        entry = f"• {item['name']} ({item['handle']}) → {item['url']}"
-        if item["name"] == "CN Wire":
-            markets.append(entry)
-        else:
-            general.append(entry)
-    return {"markets": markets, "general": general}
+    # === X/Twitter-Updates ===
+    briefing.append("\n## 📡 Stimmen & Perspektiven von X")
+    for acc in x_accounts:
+        posts = fetch_recent_x_posts(acc["account"], acc["name"], acc["url"], always_include=acc["always"])
+        if posts:
+            briefing.append(f"\n### {acc['name']} ({acc['account']})")
+            briefing.extend(posts)
+
 
 # === Beispiel: fetch_index_data (gekürzt) ===
 def fetch_index_data():
