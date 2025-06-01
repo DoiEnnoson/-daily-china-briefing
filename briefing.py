@@ -66,62 +66,94 @@ feeds_scmp_yicai = {
 }
 import html
 
-def is_china_related(text):
-    return any(kw in text.lower() for kw in china_keywords)
+# === Funktionen zum Artikelabruf ===
 
-def fetch_news(url, max_items=20):
-    """Normale China-News mit Keyword-Filter & Blacklist."""
-    feed = feedparser.parse(url)
-    articles = []
+def fetch_news(feed_url, max_items=20):
+    """Filtert nach China-Bezug & entfernt irrelevante oder boulevardeske Inhalte."""
+    feed = feedparser.parse(feed_url)
+    results = []
 
     for entry in feed.entries[:max_items]:
-        title = getattr(entry, "title", "")
-        summary = getattr(entry, "summary", "")
-        link = getattr(entry, "link", "")
-
+        title = entry.title.strip()
+        summary = html.unescape(getattr(entry, "summary", ""))
+        link = entry.link.strip()
         combined = f"{title} {summary}".lower()
 
-        if is_china_related(combined) and not any(bad in combined for bad in excluded_keywords):
-            articles.append(f"• {title.strip()} ({link.strip()})")
+        if any(kw in combined for kw in china_keywords) and not any(bad in combined for bad in excluded_keywords):
+            results.append(f"• {title} ({link})")
 
-    return articles or ["Keine aktuellen China-Artikel gefunden."]
+    return results or ["Keine aktuellen China-Artikel gefunden."]
 
-def fetch_substack_articles(url):
-    return fetch_news(url, max_items=10)
+def fetch_substack_articles(feed_url):
+    return fetch_news(feed_url, max_items=10)
+
+# === Spezialfilter für SCMP & Yicai ===
 
 def fetch_ranked_articles(feed_url, max_items=20, top_n=5):
-    """Spezialfunktion für SCMP & Yicai mit Scoresystem."""
+    """Scoring-System zur Relevanzbewertung von Artikeln."""
+    feed = feedparser.parse(feed_url)
+    articles = []
+
     important_keywords = [
         "xi", "premier li", "taiwan", "nbs", "gdp", "exports", "export", "imports", "sanctions",
         "policy", "housing", "real estate", "property", "home prices", "house prices", "house market",
         "economy", "tech", "semiconductors", "ai", "tariffs"
     ]
-
-    positive_modifiers = [
-        "explainer", "analysis", "opinion", "data", "policy", "official", "market", "feature"
-    ]
-
-    negative_keywords = excluded_keywords  # für Klarheit
-
-    feed = feedparser.parse(feed_url)
-    scored = []
+    positive_modifiers = ["analysis", "explainer", "opinion", "policy", "data", "feature", "market"]
+    negative_keywords = excluded_keywords  # Wiederverwendung
 
     for entry in feed.entries[:max_items]:
         title = entry.title.strip()
+        summary = html.unescape(getattr(entry, "summary", ""))
         link = entry.link.strip()
-        full = f"{title} {html.unescape(getattr(entry, 'summary', ''))}".lower()
+        combined = f"{title} {summary}".lower()
+
+        if not any(kw in combined for kw in china_keywords):
+            continue
 
         score = 0
-        score += sum(2 for kw in important_keywords if kw in full)
-        score += sum(1 for kw in positive_modifiers if kw in full)
-        score -= sum(2 for kw in negative_keywords if kw in full)
+        score += sum(2 for kw in important_keywords if kw in combined)
+        score += sum(1 for kw in positive_modifiers if kw in combined)
+        score -= sum(2 for kw in negative_keywords if kw in combined)
 
-        if is_china_related(full):
-            scored.append((score, f"• {title} ({link})"))
+        if score > 0:
+            articles.append((score, f"• {title} ({link})"))
 
-    scored.sort(reverse=True, key=lambda x: x[0])
-    top = [entry for score, entry in scored if score > 0][:top_n]
-    return top or ["Keine aktuellen China-Artikel gefunden."]
+    articles.sort(reverse=True, key=lambda x: x[0])
+    return [a for _, a in articles[:top_n]] or ["Keine aktuellen China-Artikel gefunden."]
+
+# === Börsenindizes ===
+
+def fetch_index_data():
+    indices = {
+        "Hang Seng Index (HSI)": "^HSI",
+        "Hang Seng China Enterprises (HSCEI)": "^HSCE",
+        "SSE Composite Index (Shanghai)": "000001.SS",
+        "Shenzhen Component Index": "399001.SZ"
+    }
+
+    headers = {"User-Agent": "Mozilla/5.0"}
+    results = []
+
+    for name, symbol in indices.items():
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=2d"
+        try:
+            r = requests.get(url, headers=headers, timeout=10)
+            r.raise_for_status()
+            data = r.json()
+            closes = data["chart"]["result"][0]["indicators"]["quote"][0]["close"]
+            if len(closes) < 2 or not all(closes[-2:]):
+                results.append(f"❌ {name}: Keine gültigen Kursdaten verfügbar.")
+                continue
+            prev, last = closes[-2], closes[-1]
+            change_pct = (last - prev) / prev * 100
+            arrow = "→" if abs(change_pct) < 0.01 else ("↑" if last > prev else "↓")
+            results.append(f"• {name}: {round(last, 2)} {arrow} ({change_pct:+.2f} %)")
+        except Exception as e:
+            results.append(f"❌ {name}: Fehler beim Abrufen ({e})")
+    return results
+
+# === NBS-Daten ===
 
 def fetch_latest_nbs_data():
     url = "https://www.stats.gov.cn/sj/zxfb/"
@@ -137,10 +169,96 @@ def fetch_latest_nbs_data():
                 title = a.text.strip()
                 link = "https://www.stats.gov.cn" + a["href"]
                 items.append(f"• {title} ({link})")
-        return items if items else ["Keine aktuellen Veröffentlichungen gefunden."]
+        return items or ["Keine aktuellen Veröffentlichungen gefunden."]
     except Exception as e:
         return [f"❌ Fehler beim Abrufen der NBS-Daten: {e}"]
 
+# === Twitter/X Accounts ===
+
+def fetch_recent_x_posts(account, name, url, always_include=False):
+    return [f"• {name} (@{account}) → {url}"]
+# === China-Filter & Score-Funktionen ===
+
+china_keywords = [
+    "china", "beijing", "shanghai", "hong kong", "li qiang", "xi jinping", "taiwan",
+    "cpc", "communist party", "pla", "prc", "macau", "alibaba", "tencent", "huawei",
+    "byd", "brics", "belt and road", "made in china"
+]
+
+excluded_keywords = [
+    "bonus", "betting", "sportsbook", "promo code", "odds", "bet365", "casino",
+    "gewinnspiel", "wetten", "lotterie", "celebrity", "fashion", "movie", "series",
+    "dog", "cat", "baby", "married", "wedding", "love", "dating", "gossip", "bizarre",
+    "tiktok prank", "weird", "rapid", "lask", "bundesliga", "champions league", "eurovision",
+    "elon musk", "donau-dinos", "robotaxi", "kulturkriege", "papst", "quiz", "selenskyj", "gaza"
+]
+
+important_keywords = [
+    "xi", "premier li", "taiwan", "nbs", "gdp", "exports", "export", "imports", "sanctions",
+    "policy", "housing", "real estate", "property", "home prices", "house prices",
+    "economy", "semiconductors", "ai", "tariffs", "market", "central bank", "stocks", "li auto", "byd", "baidu"
+]
+
+positive_modifiers = [
+    "explainer", "analysis", "opinion", "data", "policy", "official", "market", "feature", "insight"
+]
+
+# === Artikel mit Relevanzwertung (z.B. für SCMP, Yicai) ===
+def fetch_ranked_articles(feed_url, max_items=20, top_n=5):
+    feed = feedparser.parse(feed_url)
+    articles = []
+
+    for entry in feed.entries[:max_items]:
+        title = entry.title.lower()
+        score = 0
+        if any(kw in title for kw in excluded_keywords):
+            continue
+        if any(kw in title for kw in china_keywords):
+            score += 1
+        if any(kw in title for kw in important_keywords):
+            score += 2
+        if any(kw in title for kw in positive_modifiers):
+            score += 1
+        articles.append((score, f"• {entry.title.strip()} ({entry.link.strip()})"))
+
+    articles.sort(reverse=True)
+    return [item[1] for item in articles[:top_n]] or ["Keine aktuellen China-Artikel gefunden."]
+
+# === Standard-Nachrichtenfeed (mit China-Filter) ===
+def fetch_news(feed_url, max_items=15):
+    feed = feedparser.parse(feed_url)
+    articles = []
+    for entry in feed.entries[:max_items]:
+        content = f"{entry.title} {entry.summary} {entry.link}".lower()
+        if any(kw in content for kw in china_keywords):
+            if not any(bad in content for bad in excluded_keywords):
+                articles.append(f"• {entry.title.strip()} ({entry.link.strip()})")
+    return articles or ["Keine aktuellen China-Artikel gefunden."]
+
+# === Substack weiterleiten an normalen Filter ===
+def fetch_substack_articles(feed_url):
+    return fetch_news(feed_url)
+
+# === NBS-Webscraping ===
+def fetch_latest_nbs_data():
+    url = "https://www.stats.gov.cn/sj/zxfb/"
+    headers = {"User-Agent": "Mozilla/5.0"}
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
+        items = []
+        for li in soup.select("ul.list_009 li")[:5]:
+            a = li.find("a")
+            if a and a.text:
+                title = a.text.strip()
+                link = "https://www.stats.gov.cn" + a["href"]
+                items.append(f"• {title} ({link})")
+        return items or ["Keine aktuellen Veröffentlichungen gefunden."]
+    except Exception as e:
+        return [f"❌ Fehler beim Abrufen der NBS-Daten: {e}"]
+
+# === Börsenindizes (Yahoo Finance) ===
 def fetch_index_data():
     indices = {
         "Hang Seng Index (HSI)": "^HSI",
@@ -148,10 +266,8 @@ def fetch_index_data():
         "SSE Composite Index (Shanghai)": "000001.SS",
         "Shenzhen Component Index": "399001.SZ"
     }
-
     headers = { "User-Agent": "Mozilla/5.0" }
     results = []
-
     for name, symbol in indices.items():
         url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=2d"
         try:
@@ -162,17 +278,17 @@ def fetch_index_data():
             if len(closes) < 2 or not all(closes[-2:]):
                 results.append(f"❌ {name}: Keine gültigen Kursdaten verfügbar.")
                 continue
-            prev_close = closes[-2]
-            last_close = closes[-1]
+            prev_close, last_close = closes[-2], closes[-1]
             change = last_close - prev_close
             change_pct = (change / prev_close) * 100
-            symbol_arrow = "→" if abs(change_pct) < 0.01 else ("↑" if change > 0 else "↓")
-            results.append(f"• {name}: {round(last_close, 2)} {symbol_arrow} ({change_pct:+.2f} %)")
+            direction = "→" if abs(change_pct) < 0.01 else ("↑" if change > 0 else "↓")
+            results.append(f"• {name}: {round(last_close, 2)} {direction} ({change_pct:+.2f} %)")
         except Exception as e:
             results.append(f"❌ {name}: Fehler beim Abrufen ({e})")
     return results
 
-def fetch_recent_x_posts(account, name, url, always_include=False):
+# === X-Ticker ===
+def fetch_recent_x_posts(account, name, url):
     return [f"• {name} (@{account}) → {url}"]
 
 x_accounts = [
