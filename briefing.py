@@ -51,20 +51,22 @@ feeds = {
 }
 
 # === Konfiguration: X-Feeds ===
-x_feeds = [
-    {"name": "CN Wire", "handle": "@Sino_Market", "url": "https://x.com/Sino_Market", "always_include": True},
-    {"name": "China Update", "handle": "@tonychinaupdate", "url": "https://x.com/tonychinaupdate", "always_include": True},
-    {"name": "Drewry", "handle": "@DrewryShipping", "url": "https://x.com/DrewryShipping", "always_include": True},
-    {"name": "YUAN TALKS", "handle": "@YuanTalks", "url": "https://x.com/YuanTalks", "always_include": True},
-    {"name": "Brad Setser", "handle": "@Brad_Setser", "url": "https://x.com/Brad_Setser", "always_include": True},
-    {"name": "Scott Kennedy", "handle": "@KennedyCSIS", "url": "https://x.com/KennedyCSIS", "always_include": True},
-    {"name": "Hannes Zipfel", "handle": "@HannesZipfel", "url": "https://x.com/HannesZipfel", "always_include": True},
-    {"name": "Brian Tycangco", "handle": "@BrianTycangco", "url": "https://x.com/BrianTycangco", "always_include": True},
-    {"name": "Michael Pettis", "handle": "@michaelxpettis", "url": "https://x.com/michaelxpettis", "always_include": True},
-    {"name": "Bill Bishop", "handle": "@niubi", "url": "https://x.com/niubi", "always_include": True},
-    {"name": "Hao HONG", "handle": "@HAOHONG_CFA", "url": "https://x.com/HAOHONG_CFA", "always_include": True},
-    {"name": "Hu Xijin", "handle": "@HuXijin_GT", "url": "https://x.com/HuXijin_GT", "always_include": True}
+x_accounts = [
+    # Immer anzeigen
+    {"account": "@Sino_Market", "name": "CN Wire", "url": "https://x.com/Sino_Market", "always": True},
+    {"account": "@tonychinaupdate", "name": "China Update", "url": "https://x.com/tonychinaupdate", "always": True},
+    {"account": "@DrewryShipping", "name": "Drewry", "url": "https://x.com/DrewryShipping", "always": True},
+    {"account": "@YuanTalks", "name": "YUAN TALKS", "url": "https://x.com/YuanTalks", "always": True},
+    {"account": "@Brad_Setser", "name": "Brad Setser", "url": "https://x.com/Brad_Setser", "always": True},
+    {"account": "@KennedyCSIS", "name": "Scott Kennedy", "url": "https://x.com/KennedyCSIS", "always": True},
+    {"account": "@HannesZipfel", "name": "Hannes Zipfel", "url": "https://x.com/HannesZipfel", "always": True},
+    {"account": "@BrianTycangco", "name": "Brian Tycangco", "url": "https://x.com/BrianTycangco", "always": True},
+    {"account": "@michaelxpettis", "name": "Michael Pettis", "url": "https://x.com/michaelxpettis", "always": True},
+    {"account": "@niubi", "name": "Bill Bishop", "url": "https://x.com/niubi", "always": True},
+    {"account": "@HAOHONG_CFA", "name": "Hao HONG", "url": "https://x.com/HAOHONG_CFA", "always": True},
+    {"account": "@HuXijin_GT", "name": "Hu Xijin", "url": "https://x.com/HuXijin_GT", "always": True},
 ]
+
 
 # === Funktion zum Einbauen von X-Feeds ===
 def fetch_x_feeds():
