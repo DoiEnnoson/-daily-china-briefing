@@ -64,6 +64,7 @@ feeds_scmp_yicai = {
     "SCMP": "https://www.scmp.com/rss/91/feed",
     "Yicai Global": "https://www.yicaiglobal.com/rss/news"
 }
+
 # === China-Filter & Score-Funktionen ===
 china_keywords = [
     "china", "beijing", "shanghai", "hong kong", "li qiang", "xi jinping", "taiwan",
@@ -79,61 +80,49 @@ excluded_keywords = [
     "elon musk", "donau-dinos", "robotaxi", "kulturkriege", "papst", "quiz", "selenskyj", "gaza"
 ]
 
-important_keywords = [
-    "xi", "premier li", "taiwan", "nbs", "gdp", "exports", "export", "imports", "sanctions",
-    "policy", "housing", "real estate", "property", "home prices", "house prices", "house market",
-    "economy", "tech", "semiconductors", "ai", "tariffs"
-]
+def is_china_related(text):
+    text = text.lower()
+    return any(kw in text for kw in china_keywords) and not any(bad in text for bad in excluded_keywords)
 
-positive_modifiers = [
-    "explainer", "analysis", "opinion", "data", "policy", "official", "market", "feature"
-]
-
-def is_china_related(content):
-    return any(kw in content for kw in china_keywords) and not any(bad in content for bad in excluded_keywords)
-
-def fetch_news(url, max_items=20, limit_output=5):
-    feed = feedparser.parse(url)
+def fetch_news(feed_url, max_items=20):
+    feed = feedparser.parse(feed_url)
     articles = []
     for entry in feed.entries[:max_items]:
-        title = getattr(entry, "title", "")
-        summary = getattr(entry, "summary", "")
-        link = getattr(entry, "link", "")
+        title = entry.get("title", "")
+        summary = entry.get("summary", "")
+        link = entry.get("link", "")
         content = f"{title} {summary} {link}".lower()
         if is_china_related(content):
             articles.append(f"• {title.strip()} ({link.strip()})")
-        if len(articles) >= limit_output:
-            break
-    return articles or ["Keine aktuellen China-Artikel gefunden."]
+    return articles[:5] or ["Keine aktuellen China-Artikel gefunden."]
+
+# === Ranking für SCMP/Yicai ===
+important_keywords = ["xi", "premier li", "taiwan", "nbs", "gdp", "exports", "real estate", "ai", "tariffs"]
+positive_modifiers = ["analysis", "policy", "data", "market"]
+negative_keywords = ["celebrity", "weird", "bizarre", "dog", "baby", "love", "movie", "fashion"]
 
 def fetch_ranked_articles(feed_url, max_items=20, top_n=5):
     feed = feedparser.parse(feed_url)
-    scored_articles = []
+    scored = []
     for entry in feed.entries[:max_items]:
         title = entry.get("title", "").lower()
         link = entry.get("link", "")
         score = 0
-        if any(kw in title for kw in important_keywords):
-            score += 2
-        if any(pm in title for pm in positive_modifiers):
-            score += 1
-        if any(nk in title for nk in excluded_keywords):
-            score -= 3
-        scored_articles.append((score, f"• {entry.get('title', '').strip()} ({link.strip()})"))
-    scored_articles.sort(reverse=True, key=lambda x: x[0])
-    filtered = [item for score, item in scored_articles if score > 0]
-    return filtered[:top_n] or ["Keine aktuellen China-Artikel gefunden."]
+        score += sum(2 for kw in important_keywords if kw in title)
+        score += sum(1 for kw in positive_modifiers if kw in title)
+        score -= sum(2 for kw in negative_keywords if kw in title)
+        scored.append((score, entry.get("title", ""), link))
+    ranked = sorted(scored, reverse=True)[:top_n]
+    return [f"• {title.strip()} ({link.strip()})" for score, title, link in ranked if score > 0] or ["Keine aktuellen Artikel gefunden."]
 
-def fetch_substack_articles(url, max_items=10):
-    return fetch_news(url, max_items=max_items)
-
+# === NBS-Daten abrufen ===
 def fetch_latest_nbs_data():
     url = "https://www.stats.gov.cn/sj/zxfb/"
     headers = {"User-Agent": "Mozilla/5.0"}
     try:
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, "html.parser")
+        r = requests.get(url, headers=headers, timeout=10)
+        r.raise_for_status()
+        soup = BeautifulSoup(r.text, "html.parser")
         items = []
         for li in soup.select("ul.list_009 li")[:5]:
             a = li.find("a")
@@ -141,10 +130,11 @@ def fetch_latest_nbs_data():
                 title = a.text.strip()
                 link = "https://www.stats.gov.cn" + a["href"]
                 items.append(f"• {title} ({link})")
-        return items if items else ["Keine aktuellen Veröffentlichungen gefunden."]
+        return items or ["Keine aktuellen Veröffentlichungen gefunden."]
     except Exception as e:
         return [f"❌ Fehler beim Abrufen der NBS-Daten: {e}"]
 
+# === Börsendaten abrufen ===
 def fetch_index_data():
     indices = {
         "Hang Seng Index (HSI)": "^HSI",
@@ -152,14 +142,16 @@ def fetch_index_data():
         "SSE Composite Index (Shanghai)": "000001.SS",
         "Shenzhen Component Index": "399001.SZ"
     }
+
     headers = {"User-Agent": "Mozilla/5.0"}
     results = []
+
     for name, symbol in indices.items():
         url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=2d"
         try:
-            response = requests.get(url, headers=headers, timeout=10)
-            response.raise_for_status()
-            data = response.json()
+            r = requests.get(url, headers=headers, timeout=10)
+            r.raise_for_status()
+            data = r.json()
             closes = data["chart"]["result"][0]["indicators"]["quote"][0]["close"]
             if len(closes) < 2 or not all(closes[-2:]):
                 results.append(f"❌ {name}: Keine gültigen Kursdaten verfügbar.")
@@ -167,54 +159,62 @@ def fetch_index_data():
             prev_close = closes[-2]
             last_close = closes[-1]
             change = last_close - prev_close
-            change_pct = (change / prev_close) * 100
-            symbol_arrow = "→" if abs(change_pct) < 0.01 else ("↑" if change > 0 else "↓")
-            results.append(f"• {name}: {round(last_close, 2)} {symbol_arrow} ({change_pct:+.2f} %)")
+            pct = (change / prev_close) * 100
+            arrow = "→" if abs(pct) < 0.01 else "↑" if change > 0 else "↓"
+            results.append(f"• {name}: {round(last_close,2)} {arrow} ({pct:+.2f} %)")
         except Exception as e:
             results.append(f"❌ {name}: Fehler beim Abrufen ({e})")
     return results
 
+# === Stimmen von X ===
 x_accounts = [
     {"account": "Sino_Market", "name": "CN Wire", "url": "https://x.com/Sino_Market"},
     {"account": "tonychinaupdate", "name": "China Update", "url": "https://x.com/tonychinaupdate"},
-    {"account": "DrewryShipping", "name": "Drewry", "url": "https://x.com/DrewryShipping"},
     {"account": "YuanTalks", "name": "YUAN TALKS", "url": "https://x.com/YuanTalks"},
+    {"account": "Brad_Setser", "name": "Brad Setser", "url": "https://x.com/Brad_Setser"},
     {"account": "KennedyCSIS", "name": "Scott Kennedy", "url": "https://x.com/KennedyCSIS"},
-    {"account": "michaelxpettis", "name": "Michael Pettis", "url": "https://x.com/michaelxpettis"},
-    {"account": "niubi", "name": "Bill Bishop", "url": "https://x.com/niubi"}
 ]
 
 def fetch_recent_x_posts(account, name, url):
     return [f"• {name} (@{account}) → {url}"]
 
+# === Briefing generieren ===
 def generate_briefing():
     date_str = datetime.now().strftime("%d. %B %Y")
-    briefing = [f"Guten Morgen, Hado!\n\n🗓️ {date_str}\n\n"]
-    briefing.append("📬 Dies ist dein tägliches China-Briefing.\n")
+    briefing = [f"Guten Morgen, Hado!\n\n🗓️ {date_str}\n\n📬 Dies ist dein tägliches China-Briefing.\n"]
+
     briefing.append("\n## 📊 Börsenindizes China (08:00 Uhr MESZ)")
     briefing.extend(fetch_index_data())
+
+    briefing.append("\n## 📈 NBS – Nationale Statistikdaten")
+    briefing.extend(fetch_latest_nbs_data())
+
     briefing.append("\n## 📡 Stimmen & Perspektiven von X")
     for acc in x_accounts:
         briefing.extend(fetch_recent_x_posts(acc["account"], acc["name"], acc["url"]))
-    briefing.append("\n## 📈 NBS – Nationale Statistikdaten")
-    briefing.extend(fetch_latest_nbs_data())
+
     for source, url in feeds.items():
         briefing.append(f"\n## {source}")
         briefing.extend(fetch_news(url))
+
     briefing.append("\n## 📬 China-Fokus: Substack-Briefings")
     for source, url in feeds_substack.items():
         briefing.append(f"\n### {source}")
-        briefing.extend(fetch_substack_articles(url))
+        briefing.extend(fetch_news(url))
+
     briefing.append("\n## SCMP – Top-Themen")
     briefing.extend(fetch_ranked_articles(feeds_scmp_yicai["SCMP"]))
+
     briefing.append("\n## Yicai Global – Top-Themen")
     briefing.extend(fetch_ranked_articles(feeds_scmp_yicai["Yicai Global"]))
+
     briefing.append("\nEinen erfolgreichen Tag! 🌟")
     return "\n".join(briefing)
 
-# === 📤 E-Mail-Versand ===
+# === E-Mail senden ===
 print("🧠 Erzeuge Briefing...")
 briefing_content = generate_briefing()
+
 msg = MIMEText(briefing_content, "plain", "utf-8")
 msg["Subject"] = "📰 Dein tägliches China-Briefing"
 msg["From"] = config_dict["EMAIL_USER"]
