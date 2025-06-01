@@ -15,6 +15,41 @@ if not config:
 pairs = config.split(";")
 config_dict = dict(pair.split("=", 1) for pair in pairs)
 
+feeds = {
+    # ===============================
+    # 📺 Anglo-American Media
+    # ===============================
+    "Wall Street Journal": "https://feeds.a.dj.com/rss/RSSWorldNews.xml",
+    "New York Post": "https://nypost.com/feed/",
+    "Bloomberg": "https://www.bloomberg.com/feed/podcast/next_china.xml",
+    "Financial Times": "https://www.ft.com/?format=rss",
+    "Reuters": "https://www.reutersagency.com/feed/?best-topics=china&post_type=best",
+    "The Guardian": "https://www.theguardian.com/world/china/rss",
+    "Nikkei Asia": "https://asia.nikkei.com/rss/feed/nar",
+
+    # ===============================
+    # 📰 Deutsche Medien
+    # ===============================
+    "Welt": "https://www.welt.de/feeds/section/wirtschaft.rss",
+    "FAZ": "https://www.faz.net/rss/aktuell/",
+    "Frankfurter Rundschau": "https://www.fr.de/rss.xml",
+    "Tagesspiegel": "https://www.tagesspiegel.de/rss.xml",
+    "Der Standard": "https://www.derstandard.at/rss",
+
+    # ===============================
+    # 🧠 Think Tanks & Institute
+    # ===============================
+    "MERICS": "https://merics.org/en/rss.xml",
+    "CSIS": "https://www.csis.org/rss.xml",
+    "CREA (Energy & Clean Air)": "https://energyandcleanair.org/feed/",
+    "Brookings": "https://www.brookings.edu/feed/",
+    "Peterson Institute": "https://www.piie.com/rss/all",
+    "CFR – Council on Foreign Relations": "https://www.cfr.org/rss.xml",
+    "RAND Corporation": "https://www.rand.org/rss.xml",
+    "Chatham House": "https://www.chathamhouse.org/rss.xml",
+    "Lowy Institute": "https://www.lowyinstitute.org/the-interpreter/rss.xml"
+}
+
 # === Konfiguration: X-Feeds ===
 x_feeds = [
     {"name": "CN Wire", "handle": "@Sino_Market", "url": "https://x.com/Sino_Market", "always_include": True},
