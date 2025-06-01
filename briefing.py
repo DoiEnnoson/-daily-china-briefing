@@ -1,8 +1,6 @@
 import os
 import smtplib
 import feedparser
-import requests
-from bs4 import BeautifulSoup
 from datetime import datetime
 from email.mime.text import MIMEText
 
@@ -66,22 +64,41 @@ feeds_scmp_yicai = {
     "Yicai Global": "https://www.yicaiglobal.com/rss/news"
 }
 
-# === Placeholder-Funktionen ===
+# === China-Filter ===
+china_keywords = [
+    "china", "beijing", "shanghai", "hong kong", "li qiang", "xi jinping",
+    "taiwan", "cpc", "communist party", "pla", "prc", "macau", "alibaba",
+    "tencent", "huawei", "byd", "brics", "belt and road", "made in china"
+]
+
+def is_china_related(title):
+    title_lower = title.lower()
+    return any(kw in title_lower for kw in china_keywords)
+
+# === Indexdaten (manuell, später ersetzbar) ===
 def fetch_index_data():
     return ["• Hang Seng Index (HSI): 23289.77 ↓ (-1.20 %)"]
 
-def fetch_news(url):
-    return []
+# === Artikel aus RSS holen (mit China-Filter) ===
+def fetch_news(url, max_items=15):
+    feed = feedparser.parse(url)
+    articles = []
+    for entry in feed.entries[:max_items]:
+        if is_china_related(entry.title):
+            articles.append(f"• {entry.title} ({entry.link})")
+    return articles or ["Keine aktuellen China-Artikel gefunden."]
 
 def fetch_substack_articles(feed_url):
-    return []
+    return fetch_news(feed_url)
 
 def fetch_ranked_articles(feed_url):
-    return []
+    return fetch_news(feed_url)
 
+# === NBS Placeholder ===
 def fetch_latest_nbs_data():
     return ["Keine aktuellen Veröffentlichungen gefunden."]
 
+# === X-Accounts (nur Verlinkung) ===
 def fetch_recent_x_posts(account, name, url, always_include=False):
     return [f"• {name} (@{account}) → {url}"]
 
