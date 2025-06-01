@@ -72,30 +72,30 @@ china_keywords = [
 def is_china_related(title):
     return any(kw in title.lower() for kw in china_keywords)
 
-def fetch_news(url, max_items=15):
+def fetch_news(url, max_items=20):
     feed = feedparser.parse(url)
     articles = []
 
     for entry in feed.entries[:max_items]:
-        title = getattr(entry, "title", "").strip()
-        link = getattr(entry, "link", "").strip()
-        summary = getattr(entry, "summary", "").strip()
+        title = getattr(entry, "title", "")
+        summary = getattr(entry, "summary", "")
+        link = getattr(entry, "link", "")
+        
+        # Normalisierte Textbasis
+        combined = f"{title} {summary} {link}".lower()
 
-        full_text = f"{title} {summary} {link}".lower()
-
-        if any(kw in full_text for kw in china_keywords):
-            articles.append(f"• {title} ({link})")
+        # China-Filter
+        if any(kw in combined for kw in china_keywords):
+            # Zusätzlicher Ausschlussfilter (Blacklist gegen Sport/Nazis)
+            if not any(bad in combined for bad in [
+                "rapid", "lask", "bundesliga", "champions league", "eurovision", 
+                "gaza", "selenskyj", "transgender", "elon musk", "donau-dinos",
+                "waymo", "nazi", "papst", "mode", "robotaxi", "quiz", "kulturkriege"
+            ]):
+                articles.append(f"• {title.strip()} ({link.strip()})")
 
     return articles or ["Keine aktuellen China-Artikel gefunden."]
 
-def fetch_substack_articles(url):
-    return fetch_news(url)
-
-def fetch_ranked_articles(url):
-    return fetch_news(url)
-
-def fetch_latest_nbs_data():
-    return ["Keine aktuellen Veröffentlichungen gefunden."]
 
 def fetch_index_data():
     indices = {
