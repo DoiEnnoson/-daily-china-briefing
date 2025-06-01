@@ -98,7 +98,8 @@ def generate_briefing(feeds):
 
 # === Starten ===
 print("🧠 Erzeuge Briefing...")
-briefing_content = generate_briefing(feeds)
+briefing_content = generate_briefing(feeds)  # ← feeds muss definiert sein!
+
 
 # ✉️ E-Mail vorbereiten
 msg = MIMEText(briefing_content, "plain", "utf-8")
