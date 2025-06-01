@@ -75,9 +75,17 @@ def is_china_related(title):
 def fetch_news(url, max_items=15):
     feed = feedparser.parse(url)
     articles = []
+
     for entry in feed.entries[:max_items]:
-        if is_china_related(entry.title):
-            articles.append(f"• {entry.title} ({entry.link})")
+        title = getattr(entry, "title", "").strip()
+        link = getattr(entry, "link", "").strip()
+        summary = getattr(entry, "summary", "").strip()
+
+        full_text = f"{title} {summary} {link}".lower()
+
+        if any(kw in full_text for kw in china_keywords):
+            articles.append(f"• {title} ({link})")
+
     return articles or ["Keine aktuellen China-Artikel gefunden."]
 
 def fetch_substack_articles(url):
