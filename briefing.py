@@ -5,7 +5,7 @@ import requests
 from datetime import datetime
 from email.mime.text import MIMEText
 
-# === Konfiguration aus ENV ===
+# === 🔐 Konfiguration aus ENV-Variable ===
 config = os.getenv("CONFIG")
 if not config:
     raise ValueError("CONFIG environment variable not found!")
@@ -13,7 +13,7 @@ if not config:
 pairs = config.split(";")
 config_dict = dict(pair.split("=", 1) for pair in pairs)
 
-# === RSS-Feeds ===
+# === Nachrichtenquellen ===
 feeds = {
     "Wall Street Journal": "https://feeds.a.dj.com/rss/RSSWorldNews.xml",
     "New York Post": "https://nypost.com/feed/",
@@ -38,6 +38,7 @@ feeds = {
     "Lowy Institute": "https://www.lowyinstitute.org/the-interpreter/rss.xml"
 }
 
+# === Substack-Feeds ===
 feeds_substack = {
     "Sinocism – Bill Bishop": "https://sinocism.com/feed",
     "ChinaTalk – Jordan Schneider": "https://chinatalk.substack.com/feed",
@@ -58,20 +59,23 @@ feeds_substack = {
     "Observing China": "https://www.observingchina.org.uk/feed"
 }
 
+# === SCMP & Yicai ===
 feeds_scmp_yicai = {
     "SCMP": "https://www.scmp.com/rss/91/feed",
     "Yicai Global": "https://www.yicaiglobal.com/rss/news"
 }
 
+# === China-Filter ===
 china_keywords = [
     "china", "beijing", "shanghai", "hong kong", "li qiang", "xi jinping",
     "taiwan", "cpc", "communist party", "pla", "prc", "macau", "alibaba",
     "tencent", "huawei", "byd", "brics", "belt and road", "made in china"
 ]
 
-def is_china_related(title):
-    return any(kw in title.lower() for kw in china_keywords)
+def is_china_related(text):
+    return any(kw in text.lower() for kw in china_keywords)
 
+# === Artikel abrufen mit China-Filter ===
 def fetch_news(url, max_items=20):
     feed = feedparser.parse(url)
     articles = []
@@ -80,18 +84,10 @@ def fetch_news(url, max_items=20):
         title = getattr(entry, "title", "")
         summary = getattr(entry, "summary", "")
         link = getattr(entry, "link", "")
-        
-        # Normalisierte Textbasis
-        combined = f"{title} {summary} {link}".lower()
+        combined = f"{title} {summary}".lower()
 
-        # China-Filter
-        if any(kw in combined for kw in china_keywords):
-            if not any(bad in combined for bad in [
-                "rapid", "lask", "bundesliga", "champions league", "eurovision", 
-                "gaza", "selenskyj", "transgender", "elon musk", "donau-dinos",
-                "waymo", "nazi", "papst", "mode", "robotaxi", "quiz", "kulturkriege"
-            ]):
-                articles.append(f"• {title.strip()} ({link.strip()})")
+        if is_china_related(combined):
+            articles.append(f"• {title.strip()} ({link.strip()})")
 
     return articles or ["Keine aktuellen China-Artikel gefunden."]
 
@@ -101,10 +97,11 @@ def fetch_substack_articles(url):
 def fetch_ranked_articles(url):
     return fetch_news(url)
 
+# === NBS Placeholder ===
 def fetch_latest_nbs_data():
-    # Platzhalter: spätere API-Anbindung möglich
     return ["Keine aktuellen Veröffentlichungen gefunden."]
 
+# === Indexdaten via Yahoo Finance ===
 def fetch_index_data():
     indices = {
         "Hang Seng Index (HSI)": "^HSI",
@@ -136,6 +133,7 @@ def fetch_index_data():
             results.append(f"❌ {name}: Fehler beim Abrufen ({e})")
     return results
 
+# === X-Accounts ===
 def fetch_recent_x_posts(account, name, url, always_include=False):
     return [f"• {name} (@{account}) → {url}"]
 
@@ -154,6 +152,7 @@ x_accounts = [
     {"account": "HuXijin_GT", "name": "Hu Xijin", "url": "https://x.com/HuXijin_GT"},
 ]
 
+# === Briefing erzeugen ===
 def generate_briefing():
     date_str = datetime.now().strftime("%d. %B %Y")
     briefing = [f"Guten Morgen, Hado!\n\n🗓️ {date_str}\n\n"]
