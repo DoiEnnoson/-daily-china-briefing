@@ -8,78 +8,17 @@ from bs4 import BeautifulSoup
 
 # === 🧠 Wirtschaftskalendar ===
 
-import re
-from datetime import datetime, timedelta
+# === 🧠 Wirtschaftskalendar (Dummy) ===
 
-def clean_date_str(date_str):
-    # Entfernt 'st', 'nd', 'rd', 'th' aus Datumsstrings
-    return re.sub(r'(\d+)(st|nd|rd|th)', r'\1', date_str)
+def fetch_china_economic_events():
+    # Platzhalterfunktion – liefert statischen Dummy-Text zurück
+    return [
+        "• 03.06. (Di) 03:45 – Caixin Manufacturing PMI (Mai) | Prognose: 50.6 | Vorher: 50.4",
+        "• 05.06. (Do) 03:45 – Caixin Services PMI (Mai) | Prognose: 51.1 | Vorher: 50.7",
+        "• 05.06. (Do) 03:45 – Caixin Composite PMI (Mai) | Prognose: 50.7 | Vorher: 51.1",
+        "• 07.06. (Sa) 10:00 – Foreign Exchange Reserves (Mai) | Prognose: $3.35T | Vorher: $3.282T"
+    ]
 
-def fetch_myfxbook_china_events():
-    url = "https://www.myfxbook.com/forex-economic-calendar/china"
-    try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-    except Exception as e:
-        return [f"❌ Fehler beim Abrufen der Wirtschaftsdaten: {e}"]
-
-    soup = BeautifulSoup(response.text, "html.parser")
-
-    # Myfxbook hat Events als Abschnitte, z.B. Datum als <h3>, Events als Tabellenzeilen darunter
-    events_this_week = []
-    
-    today = datetime.now()
-    start_of_week = today - timedelta(days=today.weekday())  # Montag
-    end_of_week = start_of_week + timedelta(days=6)          # Sonntag
-
-    # Finde alle Datumstitel (z.B. Montag, Jun 02, 2025)
-    date_headers = soup.select("div.economicCalendarDay > h3")
-    
-    for date_header in date_headers:
-        date_text = date_header.get_text(strip=True)
-        # Datum säubern (falls Endungen drin sind)
-        date_text_clean = clean_date_str(date_text)
-        try:
-            event_date = datetime.strptime(date_text_clean, "%A, %b %d, %Y")
-        except Exception:
-            continue
-
-        # Jetzt finde alle Events unter diesem Datum (eine Tabelle o.ä.)
-        # Im HTML ist oft eine Tabelle oder div mit class economicCalendarDay direkt unter date_header
-        events_table = date_header.find_next_sibling("table")
-        if not events_table:
-            continue
-        
-        rows = events_table.select("tbody tr")
-        for row in rows:
-            # Zeit und Eventname aus Spalten ziehen
-            time_cell = row.select_one("td:nth-child(2)")
-            event_cell = row.select_one("td:nth-child(4)")
-            if not time_cell or not event_cell:
-                continue
-
-            time_str = time_cell.get_text(strip=True)
-            title = event_cell.get_text(strip=True)
-
-            # Zeit parsen, z.B. "02:00", "03:45"
-            try:
-                event_time = datetime.strptime(time_str, "%H:%M").time()
-            except Exception:
-                # Falls keine Zeit oder unbekannt, setze 00:00
-                event_time = datetime.min.time()
-
-            # Kombiniere Datum + Zeit
-            event_datetime = datetime.combine(event_date.date(), event_time)
-
-            # Filter: Nur Events in der laufenden Woche
-            if start_of_week <= event_datetime <= end_of_week + timedelta(days=1):
-                line = f"• {event_datetime.strftime('%d.%m. (%a) %H:%M')} – {title}"
-                events_this_week.append(line)
-
-    if not events_this_week:
-        return ["Keine Wirtschaftstermine für diese Woche gefunden."]
-
-    return events_this_week
 
 
 # === 🔐 Konfiguration aus ENV-Variable ===
@@ -304,10 +243,6 @@ def generate_briefing():
 
     briefing.append("\n## 📊 Börsenindizes China (08:00 Uhr MESZ)")
     briefing.extend(fetch_index_data())
-
-    # === Was heute wichtig wird ===
-    briefing.append("\n## 🕒 Wirtschaftstermine China (diese Woche)")
-    briefing.extend(fetch_myfxbook_china_events())
 
     # === Top 5 China-Stories laut Google News ===
     briefing.append("\n## 🏆 Top 5 China-Stories laut Google News")
