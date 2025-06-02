@@ -68,6 +68,12 @@ feeds_substack = {
     "Observing China": "https://www.observingchina.org.uk/feed"
 }
 
+# === Google News China Top-Stories ===
+feeds_topchina = {
+    "Google News – China": "https://news.google.com/rss/search?q=china+when:1d&hl=en&gl=US&ceid=US:en"
+}
+
+
 # === SCMP & Yicai ===
 feeds_scmp_yicai = {
     "SCMP": "https://www.scmp.com/rss/91/feed",
