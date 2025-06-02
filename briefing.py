@@ -6,56 +6,52 @@ from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from bs4 import BeautifulSoup
 
-# === 🧠 Hier kommt die Funktion rein ===
+# === 🧠 Wirtschaftskalendar ===
 
-def fetch_china_economic_events():
-    api_token = '683df3d6062211.32733250'  # Mein Schluessel 
-    today = datetime.now()
-    start_of_week = today - timedelta(days=today.weekday())  # Montag
-    end_of_week = start_of_week + timedelta(days=6)  # Sonntag
-
-    url = (
-        f'https://eodhd.com/api/economic-events?api_token={api_token}'
-        f'&fmt=json&country=CN&from={start_of_week.date()}&to={end_of_week.date()}'
-    )
-
+def fetch_fxempire_china_events():
+    url = "https://www.fxempire.com/tools/economic-calendar/china"
     try:
         response = requests.get(url, timeout=10)
         response.raise_for_status()
-        events = response.json()
     except Exception as e:
         return [f"❌ Fehler beim Abrufen der Wirtschaftsdaten: {e}"]
 
-    if not events:
-        return ["Keine relevanten Wirtschaftstermine für diese Woche gefunden."]
+    soup = BeautifulSoup(response.text, "html.parser")
 
-    formatted_events = []
-    for event in events:
-        date = event.get("date", "")[:10]
-        time = event.get("date", "")[11:16]
-        title = event.get("event", "")
-        actual = event.get("actual", "")
-        forecast = event.get("forecast", "")
-        previous = event.get("previous", "")
+    rows = soup.select("table.economic-calendar__table tbody tr")
 
-        line = f"• {date} {time} – {title}"
-        if actual:
-            line += f" | Ist: {actual}"
-        if forecast:
-            line += f" | Prognose: {forecast}"
-        if previous:
-            line += f" | Vorher: {previous}"
+    today = datetime.now()
+    start_of_week = today - timedelta(days=today.weekday())  # Montag
+    end_of_week = start_of_week + timedelta(days=6)          # Sonntag
 
-        formatted_events.append(line)
+    events_this_week = []
 
-    return formatted_events
+    for row in rows:
+        date_cell = row.select_one("td.date")
+        time_cell = row.select_one("td.time")
+        event_cell = row.select_one("td.event")
 
-# === 🔐 Konfiguration aus ENV-Variable ===
-config = os.getenv("CONFIG")
-if not config:
-    raise ValueError("CONFIG environment variable not found!")
-pairs = config.split(";")
-config_dict = dict(pair.split("=", 1) for pair in pairs)
+        if not date_cell or not time_cell or not event_cell:
+            continue
+
+        date_str = date_cell.text.strip()
+        time_str = time_cell.text.strip()
+        title = event_cell.text.strip()
+
+        # Datum parsen (Beispiel: "Mon 02 Jun")
+        try:
+            event_date = datetime.strptime(date_str + f" {today.year}", "%a %d %b %Y")
+        except Exception:
+            continue
+
+        if start_of_week.date() <= event_date.date() <= end_of_week.date():
+            line = f"• {event_date.strftime('%d.%m. (%a)')} {time_str} – {title}"
+            events_this_week.append(line)
+
+    if not events_this_week:
+        return ["Keine Wirtschaftstermine für diese Woche gefunden."]
+
+    return events_this_week
 
 
 # === 🔐 Konfiguration aus ENV-Variable ===
@@ -186,9 +182,6 @@ def score_article(title, summary=""):
 
     return score
 
-
-
-
 # === News-Artikel filtern & bewerten ===
 def fetch_news(feed_url, max_items=20, top_n=5):
     """Holt Artikel, bewertet Relevanz und gibt die besten top_n zurück."""
@@ -284,9 +277,9 @@ def generate_briefing():
     briefing.append("\n## 📊 Börsenindizes China (08:00 Uhr MESZ)")
     briefing.extend(fetch_index_data())
 
-        # === Was heute wichtig wird ===
-    briefing.append("\n## 🕒 Was heute wichtig wird in China")
-    briefing.extend(fetch_china_economic_events())
+    # === Was heute wichtig wird ===
+    briefing.append("\n## 🕒 Wirtschaftstermine China (diese Woche)")
+    briefing.extend(fetch_fxempire_china_events())
 
     # === Top 5 China-Stories laut Google News ===
     briefing.append("\n## 🏆 Top 5 China-Stories laut Google News")
