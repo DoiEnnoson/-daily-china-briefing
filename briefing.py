@@ -230,25 +230,25 @@ def generate_briefing():
     for acc in x_accounts:
         briefing.extend(fetch_recent_x_posts(acc["account"], acc["name"], acc["url"]))
 
-briefing.append("\n## 🇺🇸 Internationale Medien (US/UK/Asien)")
-for source, url in feeds.items():
-    briefing.append(f"\n### {source}")
-    briefing.extend(fetch_news(url))
+    briefing.append("\n## 🇺🇸 Internationale Medien (US/UK/Asien)")
+    for source, url in feeds.items():
+        briefing.append(f"\n### {source}")
+        briefing.extend(fetch_news(url))
 
-briefing.append("\n## 🇩🇪 Deutschsprachige Medien")
-for source, url in feeds_german.items():
-    briefing.append(f"\n### {source}")
-    briefing.extend(fetch_news(url))
+    briefing.append("\n## 🇩🇪 Deutschsprachige Medien")
+    for source, url in feeds_german.items():
+        briefing.append(f"\n### {source}")
+        briefing.extend(fetch_news(url))
 
-briefing.append("\n## 🧠 Think Tanks & Forschungsinstitute")
-for source, url in feeds_thinktanks.items():
-    briefing.append(f"\n### {source}")
-    briefing.extend(fetch_news(url))
+    briefing.append("\n## 🧠 Think Tanks & Forschungsinstitute")
+    for source, url in feeds_thinktanks.items():
+        briefing.append(f"\n### {source}")
+        briefing.extend(fetch_news(url))
 
-briefing.append("\n## 📬 China-Fokus: Substack-Briefings")
-for source, url in feeds_substack.items():
-    briefing.append(f"\n### {source}")
-    briefing.extend(fetch_news(url))
+    briefing.append("\n## 📬 China-Fokus: Substack-Briefings")
+    for source, url in feeds_substack.items():
+        briefing.append(f"\n### {source}")
+        briefing.extend(fetch_news(url))
 
     briefing.append("\n## SCMP – Top-Themen")
     briefing.extend(fetch_ranked_articles(feeds_scmp_yicai["SCMP"]))
@@ -258,6 +258,50 @@ for source, url in feeds_substack.items():
 
     briefing.append("\nEinen erfolgreichen Tag! 🌟")
     return "\n".join(briefing)
+# === Briefing generieren ===
+def generate_briefing():
+    date_str = datetime.now().strftime("%d. %B %Y")
+    briefing = [f"Guten Morgen, Hado!\n\n🗓️ {date_str}\n\n📬 Dies ist dein tägliches China-Briefing.\n"]
+
+    briefing.append("\n## 📊 Börsenindizes China (08:00 Uhr MESZ)")
+    briefing.extend(fetch_index_data())
+
+    briefing.append("\n## 📈 NBS – Nationale Statistikdaten")
+    briefing.extend(fetch_latest_nbs_data())
+
+    briefing.append("\n## 📡 Stimmen & Perspektiven von X")
+    for acc in x_accounts:
+        briefing.extend(fetch_recent_x_posts(acc["account"], acc["name"], acc["url"]))
+
+    briefing.append("\n## 🇺🇸 Internationale Medien (US/UK/Asien)")
+    for source, url in feeds.items():
+        briefing.append(f"\n### {source}")
+        briefing.extend(fetch_news(url))
+
+    briefing.append("\n## 🇩🇪 Deutschsprachige Medien")
+    for source, url in feeds_german.items():
+        briefing.append(f"\n### {source}")
+        briefing.extend(fetch_news(url))
+
+    briefing.append("\n## 🧠 Think Tanks & Forschungsinstitute")
+    for source, url in feeds_thinktanks.items():
+        briefing.append(f"\n### {source}")
+        briefing.extend(fetch_news(url))
+
+    briefing.append("\n## 📬 China-Fokus: Substack-Briefings")
+    for source, url in feeds_substack.items():
+        briefing.append(f"\n### {source}")
+        briefing.extend(fetch_news(url))
+
+    briefing.append("\n## SCMP – Top-Themen")
+    briefing.extend(fetch_ranked_articles(feeds_scmp_yicai["SCMP"]))
+
+    briefing.append("\n## Yicai Global – Top-Themen")
+    briefing.extend(fetch_ranked_articles(feeds_scmp_yicai["Yicai Global"]))
+
+    briefing.append("\nEinen erfolgreichen Tag! 🌟")
+    return "\n".join(briefing)
+
 
 # === E-Mail senden ===
 print("🧠 Erzeuge Briefing...")
