@@ -234,11 +234,7 @@ def generate_briefing():
 
         # === Was heute wichtig wird ===
     briefing.append("\n## 🕒 Was heute wichtig wird in China")
-    briefing.extend([
-        "• BIP-Zahlen (Q2) erwartet",
-        "• PMI (Juli) von offizieller Seite",
-        "• Caixin PMI (Juli) folgt morgen"
-    ])
+    briefing.extend(fetch_china_economic_events())
 
     # === Top 5 China-Stories laut Google News ===
     briefing.append("\n## 🏆 Top 5 China-Stories laut Google News")
