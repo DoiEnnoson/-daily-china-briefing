@@ -125,6 +125,11 @@ def fetch_news(feed_url, max_items=20, top_n=5):
     scored.sort(reverse=True, key=lambda x: x[0])
     return [item[1] for item in scored[:top_n]] or ["Keine aktuellen China-Artikel gefunden."]
 
+# === SCMP & Yicai Ranking-Wrapper ===
+def fetch_ranked_articles(feed_url, max_items=20, top_n=5):
+    """Wendet denselben Bewertungsfilter wie fetch_news an, speziell für SCMP & Yicai."""
+    return fetch_news(feed_url, max_items=max_items, top_n=top_n)
+
 
 # === NBS-Daten abrufen ===
 def fetch_latest_nbs_data():
