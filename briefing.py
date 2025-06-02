@@ -224,6 +224,20 @@ def generate_briefing():
     briefing.append("\n## 📊 Börsenindizes China (08:00 Uhr MESZ)")
     briefing.extend(fetch_index_data())
 
+        # === Was heute wichtig wird ===
+    briefing.append("\n## 🕒 Was heute wichtig wird in China")
+    briefing.extend([
+        "• BIP-Zahlen (Q2) erwartet",
+        "• PMI (Juli) von offizieller Seite",
+        "• Caixin PMI (Juli) folgt morgen"
+    ])
+
+    # === Top 5 China-Stories laut Google News ===
+    briefing.append("\n## 🏆 Top 5 China-Stories laut Google News")
+    for source, url in feeds_topchina.items():
+        briefing.append(f"\n### {source}")
+        briefing.extend(fetch_news(url, max_items=30, top_n=5))
+
     briefing.append("\n## 📈 NBS – Nationale Statistikdaten")
     briefing.extend(fetch_latest_nbs_data())
 
