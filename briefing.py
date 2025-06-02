@@ -23,34 +23,51 @@ def fetch_fxempire_china_events():
 
     soup = BeautifulSoup(response.text, "html.parser")
 
-    rows = soup.select("table.economic-calendar__table tbody tr")
-
+    # Heute, Woche Anfang & Ende
     today = datetime.now()
-    start_of_week = today - timedelta(days=today.weekday())  # Montag
-    end_of_week = start_of_week + timedelta(days=6)          # Sonntag
+    start_of_week = today - timedelta(days=today.weekday())
+    end_of_week = start_of_week + timedelta(days=6)
 
     events_this_week = []
 
-    for row in rows:
-        date_cell = row.select_one("td.date")
-        time_cell = row.select_one("td.time")
-        event_cell = row.select_one("td.event")
+    # Alle Datum-Überschriften (z.B. "Tuesday, June 3rd 2025")
+    date_headers = soup.select("div.ec-calendar-day")
 
-        if not date_cell or not time_cell or not event_cell:
-            continue
+    for day_div in date_headers:
+        # Datum aus Header-Text parsen
+        date_text = day_div.select_one("div.ec-calendar-day-header").text.strip()
+        # Beispiel: "Tuesday, June 3rd 2025"
+        # Entferne "st", "nd", "rd", "th" aus Datum für Parsing
+        import re
+        date_text_clean = re.sub(r'(\d+)(st|nd|rd|th)', r'\1', date_text)
 
-        date_str = date_cell.text.strip()
-        time_str = time_cell.text.strip()
-        title = event_cell.text.strip()
-
-        # Datum parsen (Beispiel: "Mon 02 Jun")
         try:
-            event_date = datetime.strptime(date_str + f" {today.year}", "%a %d %b %Y")
+            event_date = datetime.strptime(date_text_clean, "%A, %B %d %Y")
         except Exception:
             continue
 
-        if start_of_week.date() <= event_date.date() <= end_of_week.date():
-            line = f"• {event_date.strftime('%d.%m. (%a)')} {time_str} – {title}"
+        if not (start_of_week.date() <= event_date.date() <= end_of_week.date()):
+            continue  # Datum außerhalb der aktuellen Woche, skip
+
+        # Events unter diesem Datum finden (Table Rows)
+        event_rows = day_div.select("table tbody tr")
+
+        for row in event_rows:
+            cells = row.find_all("td")
+            if len(cells) < 6:
+                continue
+            time_str = cells[0].text.strip()
+            currency = cells[1].text.strip()
+            event_name = cells[2].text.strip()
+            impact = cells[3].text.strip()
+            actual = cells[4].text.strip()
+            forecast = cells[5].text.strip()
+            # Formatieren:
+            line = f"• {event_date.strftime('%d.%m. (%a)')} {time_str} – {event_name} (Impact: {impact})"
+            if actual != "--":
+                line += f" | Ist: {actual}"
+            if forecast != "--":
+                line += f" | Prognose: {forecast}"
             events_this_week.append(line)
 
     if not events_this_week:
