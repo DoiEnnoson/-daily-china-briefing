@@ -148,7 +148,7 @@ def fetch_news(feed_url, max_items=20, top_n=5):
 
         score = score_article(title, summary)
         if score > 0:
-            scored.append((score, f"• {title.strip()} ({link.strip()})"))
+            scored.append((score, f'• <a href="{link.strip()}">{title.strip()}</a>'))
 
     scored.sort(reverse=True, key=lambda x: x[0])
     return [item[1] for item in scored[:top_n]] or ["Keine aktuellen China-Artikel gefunden."]
