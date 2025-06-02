@@ -2,9 +2,61 @@ import os
 import smtplib
 import feedparser
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from bs4 import BeautifulSoup
+
+# === 🧠 Hier kommt die Funktion rein ===
+
+def fetch_china_economic_events():
+    api_token = '683df3d6062211.32733250'  # Mein Schluessel 
+    today = datetime.now()
+    start_of_week = today - timedelta(days=today.weekday())  # Montag
+    end_of_week = start_of_week + timedelta(days=6)  # Sonntag
+
+    url = (
+        f'https://eodhd.com/api/economic-events?api_token={api_token}'
+        f'&fmt=json&country=CN&from={start_of_week.date()}&to={end_of_week.date()}'
+    )
+
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        events = response.json()
+    except Exception as e:
+        return [f"❌ Fehler beim Abrufen der Wirtschaftsdaten: {e}"]
+
+    if not events:
+        return ["Keine relevanten Wirtschaftstermine für diese Woche gefunden."]
+
+    formatted_events = []
+    for event in events:
+        date = event.get("date", "")[:10]
+        time = event.get("date", "")[11:16]
+        title = event.get("event", "")
+        actual = event.get("actual", "")
+        forecast = event.get("forecast", "")
+        previous = event.get("previous", "")
+
+        line = f"• {date} {time} – {title}"
+        if actual:
+            line += f" | Ist: {actual}"
+        if forecast:
+            line += f" | Prognose: {forecast}"
+        if previous:
+            line += f" | Vorher: {previous}"
+
+        formatted_events.append(line)
+
+    return formatted_events
+
+# === 🔐 Konfiguration aus ENV-Variable ===
+config = os.getenv("CONFIG")
+if not config:
+    raise ValueError("CONFIG environment variable not found!")
+pairs = config.split(";")
+config_dict = dict(pair.split("=", 1) for pair in pairs)
+
 
 # === 🔐 Konfiguration aus ENV-Variable ===
 config = os.getenv("CONFIG")
