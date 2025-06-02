@@ -13,7 +13,7 @@ if not config:
 pairs = config.split(";")
 config_dict = dict(pair.split("=", 1) for pair in pairs)
 
-# === Nachrichtenquellen ===
+# === US-/UK-Medien ===
 feeds = {
     "Wall Street Journal": "https://feeds.a.dj.com/rss/RSSWorldNews.xml",
     "New York Post": "https://nypost.com/feed/",
@@ -21,12 +21,20 @@ feeds = {
     "Financial Times": "https://www.ft.com/?format=rss",
     "Reuters": "https://www.reutersagency.com/feed/?best-topics=china&post_type=best",
     "The Guardian": "https://www.theguardian.com/world/china/rss",
-    "Nikkei Asia": "https://asia.nikkei.com/rss/feed/nar",
+    "Nikkei Asia": "https://asia.nikkei.com/rss/feed/nar"
+}
+
+# === Deutschsprachige Medien ===
+feeds_german = {
     "Welt": "https://www.welt.de/feeds/section/wirtschaft.rss",
     "FAZ": "https://www.faz.net/rss/aktuell/",
     "Frankfurter Rundschau": "https://www.fr.de/rss.xml",
     "Tagesspiegel": "https://www.tagesspiegel.de/rss.xml",
-    "Der Standard": "https://www.derstandard.at/rss",
+    "Der Standard": "https://www.derstandard.at/rss"
+}
+
+# === Think Tanks & Institute ===
+feeds_thinktanks = {
     "MERICS": "https://merics.org/en/rss.xml",
     "CSIS": "https://www.csis.org/rss.xml",
     "CREA (Energy & Clean Air)": "https://energyandcleanair.org/feed/",
