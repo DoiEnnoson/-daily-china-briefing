@@ -66,54 +66,45 @@ feeds_scmp_yicai = {
 }
 
 # === China-Filter & Score-Funktionen ===
-china_keywords = [
-    "china", "beijing", "shanghai", "hong kong", "li qiang", "xi jinping", "taiwan",
-    "cpc", "communist party", "pla", "prc", "macau", "alibaba", "tencent", "huawei",
-    "byd", "brics", "belt and road", "made in china"
-]
+def score_article(title, summary=""):
+    """Vergibt einen Score für einen Artikel basierend auf Relevanz für China-Briefing."""
+    title = title.lower()
+    summary = summary.lower()
+    content = f"{title} {summary}"
 
-excluded_keywords = [
-    "bonus", "betting", "sportsbook", "promo code", "odds", "bet365", "casino",
-    "gewinnspiel", "wetten", "lotterie", "celebrity", "fashion", "movie", "series",
-    "dog", "cat", "baby", "married", "wedding", "love", "dating", "gossip", "bizarre",
-    "tiktok prank", "weird", "rapid", "lask", "bundesliga", "champions league", "eurovision",
-    "elon musk", "donau-dinos", "robotaxi", "kulturkriege", "papst", "quiz", "selenskyj", "gaza"
-]
+    important_keywords = [
+        "xi", "premier li", "taiwan", "nbs", "gdp", "exports", "export", "imports",
+        "sanctions", "policy", "housing", "real estate", "property", "home prices",
+        "house prices", "house market", "economy", "tech", "semiconductors", "ai",
+        "tariffs", "pmi", "cpi", "manufacturing", "industrial", "foreign direct investment"
+    ]
 
-def is_china_related(text):
-    text = text.lower()
-    return any(kw in text for kw in china_keywords) and not any(bad in text for bad in excluded_keywords)
+    positive_modifiers = [
+        "explainer", "analysis", "opinion", "comment", "feature", "data", "official"
+    ]
 
-def fetch_news(feed_url, max_items=20):
-    feed = feedparser.parse(feed_url)
-    articles = []
-    for entry in feed.entries[:max_items]:
-        title = entry.get("title", "")
-        summary = entry.get("summary", "")
-        link = entry.get("link", "")
-        content = f"{title} {summary} {link}".lower()
-        if is_china_related(content):
-            articles.append(f"• {title.strip()} ({link.strip()})")
-    return articles[:5] or ["Keine aktuellen China-Artikel gefunden."]
+    negative_keywords = [
+        "celebrity", "gossip", "love", "dating", "wedding", "dog", "cat", "bizarre",
+        "baby", "tourist", "fashion", "movie", "series", "video", "tiktok", "weird",
+        "rapid", "lask", "bundesliga", "eurovision", "elon musk", "quiz", "selenskyj", "gaza"
+    ]
 
-# === Ranking für SCMP/Yicai ===
-important_keywords = ["xi", "premier li", "taiwan", "nbs", "gdp", "exports", "real estate", "ai", "tariffs"]
-positive_modifiers = ["analysis", "policy", "data", "market"]
-negative_keywords = ["celebrity", "weird", "bizarre", "dog", "baby", "love", "movie", "fashion"]
+    score = 0
 
-def fetch_ranked_articles(feed_url, max_items=20, top_n=5):
-    feed = feedparser.parse(feed_url)
-    scored = []
-    for entry in feed.entries[:max_items]:
-        title = entry.get("title", "").lower()
-        link = entry.get("link", "")
-        score = 0
-        score += sum(2 for kw in important_keywords if kw in title)
-        score += sum(1 for kw in positive_modifiers if kw in title)
-        score -= sum(2 for kw in negative_keywords if kw in title)
-        scored.append((score, entry.get("title", ""), link))
-    ranked = sorted(scored, reverse=True)[:top_n]
-    return [f"• {title.strip()} ({link.strip()})" for score, title, link in ranked if score > 0] or ["Keine aktuellen Artikel gefunden."]
+    for word in important_keywords:
+        if word in content:
+            score += 2
+
+    for word in positive_modifiers:
+        if word in content:
+            score += 1
+
+    for word in negative_keywords:
+        if word in content:
+            score -= 5
+
+    return score
+
 
 # === NBS-Daten abrufen ===
 def fetch_latest_nbs_data():
