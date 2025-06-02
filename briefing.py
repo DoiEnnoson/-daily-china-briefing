@@ -26,6 +26,7 @@ feeds = {
 
 # === Deutschsprachige Medien ===
 feeds_german = {
+    "Finanzmarktwelt": "https://www.finanzmarktwelt.de/rss",
     "Welt": "https://www.welt.de/feeds/section/wirtschaft.rss",
     "FAZ": "https://www.faz.net/rss/aktuell/",
     "Frankfurter Rundschau": "https://www.fr.de/rss.xml",
