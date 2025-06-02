@@ -8,58 +8,79 @@ from bs4 import BeautifulSoup
 
 # === 🧠 Wirtschaftskalendar ===
 
+import re
+from datetime import datetime, timedelta
+
+def clean_date_str(date_str):
+    # Entfernt 'st', 'nd', 'rd', 'th' aus Datumsstrings
+    return re.sub(r'(\d+)(st|nd|rd|th)', r'\1', date_str)
+
 def fetch_myfxbook_china_events():
     url = "https://www.myfxbook.com/forex-economic-calendar/china"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                      "AppleWebKit/537.36 (KHTML, like Gecko) "
-                      "Chrome/114.0.0.0 Safari/537.36"
-    }
     try:
-        response = requests.get(url, headers=headers, timeout=10)
+        response = requests.get(url, timeout=10)
         response.raise_for_status()
     except Exception as e:
         return [f"❌ Fehler beim Abrufen der Wirtschaftsdaten: {e}"]
 
     soup = BeautifulSoup(response.text, "html.parser")
 
-    today = datetime.now()
-    start_of_week = today - timedelta(days=today.weekday())
-    end_of_week = start_of_week + timedelta(days=6)
-
+    # Myfxbook hat Events als Abschnitte, z.B. Datum als <h3>, Events als Tabellenzeilen darunter
     events_this_week = []
+    
+    today = datetime.now()
+    start_of_week = today - timedelta(days=today.weekday())  # Montag
+    end_of_week = start_of_week + timedelta(days=6)          # Sonntag
 
-    # Tabelle mit Events
-    rows = soup.select("table.ec-table tbody tr")
-
-    for row in rows:
-        cells = row.find_all("td")
-        if len(cells) < 6:
-            continue
-
-        date_str = cells[0].text.strip()  # z.B. "Tuesday, June 3"
-        time_str = cells[1].text.strip()  # z.B. "03:45"
-        currency = cells[2].text.strip()  # z.B. "CNY"
-        event_name = cells[3].text.strip()
-        impact = cells[4].text.strip()
-        actual = cells[5].text.strip()
-
-        # Datum parsen (ohne Jahr)
+    # Finde alle Datumstitel (z.B. Montag, Jun 02, 2025)
+    date_headers = soup.select("div.economicCalendarDay > h3")
+    
+    for date_header in date_headers:
+        date_text = date_header.get_text(strip=True)
+        # Datum säubern (falls Endungen drin sind)
+        date_text_clean = clean_date_str(date_text)
         try:
-            event_date = datetime.strptime(date_str + f" {today.year}", "%A, %B %d %Y")
+            event_date = datetime.strptime(date_text_clean, "%A, %b %d, %Y")
         except Exception:
             continue
 
-        if start_of_week.date() <= event_date.date() <= end_of_week.date():
-            line = f"• {event_date.strftime('%d.%m. (%a)')} {time_str} – {event_name} (Impact: {impact})"
-            if actual != "--":
-                line += f" | Ist: {actual}"
-            events_this_week.append(line)
+        # Jetzt finde alle Events unter diesem Datum (eine Tabelle o.ä.)
+        # Im HTML ist oft eine Tabelle oder div mit class economicCalendarDay direkt unter date_header
+        events_table = date_header.find_next_sibling("table")
+        if not events_table:
+            continue
+        
+        rows = events_table.select("tbody tr")
+        for row in rows:
+            # Zeit und Eventname aus Spalten ziehen
+            time_cell = row.select_one("td:nth-child(2)")
+            event_cell = row.select_one("td:nth-child(4)")
+            if not time_cell or not event_cell:
+                continue
+
+            time_str = time_cell.get_text(strip=True)
+            title = event_cell.get_text(strip=True)
+
+            # Zeit parsen, z.B. "02:00", "03:45"
+            try:
+                event_time = datetime.strptime(time_str, "%H:%M").time()
+            except Exception:
+                # Falls keine Zeit oder unbekannt, setze 00:00
+                event_time = datetime.min.time()
+
+            # Kombiniere Datum + Zeit
+            event_datetime = datetime.combine(event_date.date(), event_time)
+
+            # Filter: Nur Events in der laufenden Woche
+            if start_of_week <= event_datetime <= end_of_week + timedelta(days=1):
+                line = f"• {event_datetime.strftime('%d.%m. (%a) %H:%M')} – {title}"
+                events_this_week.append(line)
 
     if not events_this_week:
         return ["Keine Wirtschaftstermine für diese Woche gefunden."]
 
     return events_this_week
+
 
 # === 🔐 Konfiguration aus ENV-Variable ===
 config = os.getenv("CONFIG")
