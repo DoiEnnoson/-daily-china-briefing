@@ -230,14 +230,25 @@ def generate_briefing():
     for acc in x_accounts:
         briefing.extend(fetch_recent_x_posts(acc["account"], acc["name"], acc["url"]))
 
-    for source, url in feeds.items():
-        briefing.append(f"\n## {source}")
-        briefing.extend(fetch_news(url))
+briefing.append("\n## 🇺🇸 Internationale Medien (US/UK/Asien)")
+for source, url in feeds.items():
+    briefing.append(f"\n### {source}")
+    briefing.extend(fetch_news(url))
 
-    briefing.append("\n## 📬 China-Fokus: Substack-Briefings")
-    for source, url in feeds_substack.items():
-        briefing.append(f"\n### {source}")
-        briefing.extend(fetch_news(url))
+briefing.append("\n## 🇩🇪 Deutschsprachige Medien")
+for source, url in feeds_german.items():
+    briefing.append(f"\n### {source}")
+    briefing.extend(fetch_news(url))
+
+briefing.append("\n## 🧠 Think Tanks & Forschungsinstitute")
+for source, url in feeds_thinktanks.items():
+    briefing.append(f"\n### {source}")
+    briefing.extend(fetch_news(url))
+
+briefing.append("\n## 📬 China-Fokus: Substack-Briefings")
+for source, url in feeds_substack.items():
+    briefing.append(f"\n### {source}")
+    briefing.extend(fetch_news(url))
 
     briefing.append("\n## SCMP – Top-Themen")
     briefing.extend(fetch_ranked_articles(feeds_scmp_yicai["SCMP"]))
