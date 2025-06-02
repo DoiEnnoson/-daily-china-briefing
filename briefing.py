@@ -8,8 +8,8 @@ from bs4 import BeautifulSoup
 
 # === 🧠 Wirtschaftskalendar ===
 
-def fetch_fxempire_china_events():
-    url = "https://www.fxempire.com/tools/economic-calendar/china"
+def fetch_myfxbook_china_events():
+    url = "https://www.myfxbook.com/forex-economic-calendar/china"
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                       "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -23,59 +23,43 @@ def fetch_fxempire_china_events():
 
     soup = BeautifulSoup(response.text, "html.parser")
 
-    # Heute, Woche Anfang & Ende
     today = datetime.now()
     start_of_week = today - timedelta(days=today.weekday())
     end_of_week = start_of_week + timedelta(days=6)
 
     events_this_week = []
 
-    # Alle Datum-Überschriften (z.B. "Tuesday, June 3rd 2025")
-    date_headers = soup.select("div.ec-calendar-day")
+    # Tabelle mit Events
+    rows = soup.select("table.ec-table tbody tr")
 
-    for day_div in date_headers:
-        # Datum aus Header-Text parsen
-        date_text = day_div.select_one("div.ec-calendar-day-header").text.strip()
-        # Beispiel: "Tuesday, June 3rd 2025"
-        # Entferne "st", "nd", "rd", "th" aus Datum für Parsing
-        import re
-        date_text_clean = re.sub(r'(\d+)(st|nd|rd|th)', r'\1', date_text)
+    for row in rows:
+        cells = row.find_all("td")
+        if len(cells) < 6:
+            continue
 
+        date_str = cells[0].text.strip()  # z.B. "Tuesday, June 3"
+        time_str = cells[1].text.strip()  # z.B. "03:45"
+        currency = cells[2].text.strip()  # z.B. "CNY"
+        event_name = cells[3].text.strip()
+        impact = cells[4].text.strip()
+        actual = cells[5].text.strip()
+
+        # Datum parsen (ohne Jahr)
         try:
-            event_date = datetime.strptime(date_text_clean, "%A, %B %d %Y")
+            event_date = datetime.strptime(date_str + f" {today.year}", "%A, %B %d %Y")
         except Exception:
             continue
 
-        if not (start_of_week.date() <= event_date.date() <= end_of_week.date()):
-            continue  # Datum außerhalb der aktuellen Woche, skip
-
-        # Events unter diesem Datum finden (Table Rows)
-        event_rows = day_div.select("table tbody tr")
-
-        for row in event_rows:
-            cells = row.find_all("td")
-            if len(cells) < 6:
-                continue
-            time_str = cells[0].text.strip()
-            currency = cells[1].text.strip()
-            event_name = cells[2].text.strip()
-            impact = cells[3].text.strip()
-            actual = cells[4].text.strip()
-            forecast = cells[5].text.strip()
-            # Formatieren:
+        if start_of_week.date() <= event_date.date() <= end_of_week.date():
             line = f"• {event_date.strftime('%d.%m. (%a)')} {time_str} – {event_name} (Impact: {impact})"
             if actual != "--":
                 line += f" | Ist: {actual}"
-            if forecast != "--":
-                line += f" | Prognose: {forecast}"
             events_this_week.append(line)
 
     if not events_this_week:
         return ["Keine Wirtschaftstermine für diese Woche gefunden."]
 
     return events_this_week
-
-
 
 # === 🔐 Konfiguration aus ENV-Variable ===
 config = os.getenv("CONFIG")
