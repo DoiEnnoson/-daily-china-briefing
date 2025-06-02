@@ -95,8 +95,10 @@ def score_article(title, summary=""):
     ]
 
     negative_keywords = [
+
         "celebrity", "gossip", "dog", "baby", "fashion", "movie", "series", "bizarre",
-        "dating", "weird", "quiz", "elon musk", "rapid", "lask", "bundesliga", "eurovision"
+        "dating", "weird", "quiz", "elon musk", "rapid", "lask", "bundesliga", "eurovision", "basketball", "nba", "mlb", "nfl", "liberty", "yankees", "tournament", "playoffs", "finale", "score", "blowout" 
+    
     ]
 
     score = 1  # Basisscore, wenn Titel China-relevant ist
