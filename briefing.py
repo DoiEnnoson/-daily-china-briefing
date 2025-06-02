@@ -106,6 +106,26 @@ def score_article(title, summary=""):
     return score
 
 
+
+# === News-Artikel filtern & bewerten ===
+def fetch_news(feed_url, max_items=20, top_n=5):
+    """Holt Artikel, bewertet Relevanz und gibt die besten top_n zurück."""
+    feed = feedparser.parse(feed_url)
+    scored = []
+
+    for entry in feed.entries[:max_items]:
+        title = entry.get("title", "")
+        summary = entry.get("summary", "")
+        link = entry.get("link", "")
+
+        score = score_article(title, summary)
+        if score > 0:
+            scored.append((score, f"• {title.strip()} ({link.strip()})"))
+
+    scored.sort(reverse=True, key=lambda x: x[0])
+    return [item[1] for item in scored[:top_n]] or ["Keine aktuellen China-Artikel gefunden."]
+
+
 # === NBS-Daten abrufen ===
 def fetch_latest_nbs_data():
     url = "https://www.stats.gov.cn/sj/zxfb/"
