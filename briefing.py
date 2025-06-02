@@ -278,7 +278,14 @@ def generate_briefing():
     briefing.extend(fetch_ranked_articles(feeds_scmp_yicai["Yicai Global"]))
 
     briefing.append("\nEinen erfolgreichen Tag! 🌟")
-    return "\n".join(briefing)
+    return f"""\
+<html>
+  <body>
+    <pre style="font-family: system-ui, sans-serif">
+{chr(10).join(briefing)}
+    </pre>
+  </body>
+</html>"""
 
 # === E-Mail senden ===
 print("🧠 Erzeuge Briefing...")
