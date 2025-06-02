@@ -17,13 +17,15 @@ config_dict = dict(pair.split("=", 1) for pair in pairs)
 feeds = {
     "Wall Street Journal": "https://feeds.a.dj.com/rss/RSSWorldNews.xml",
     "New York Post": "https://nypost.com/feed/",
-    "Bloomberg": "https://www.bloomberg.com/feed/podcast/next_china.xml",
+    # "Bloomberg": "https://www.bloomberg.com/feed/podcast/next_china.xml",  # ← optional auskommentiert
     "Financial Times": "https://www.ft.com/?format=rss",
     "Reuters": "https://www.reutersagency.com/feed/?best-topics=china&post_type=best",
     "The Guardian": "https://www.theguardian.com/world/china/rss",
-    "Nikkei Asia": "https://asia.nikkei.com/rss/feed/nar"
+    "Nikkei Asia": "https://asia.nikkei.com/rss/feed/nar",
+    "Yahoo News": "https://www.yahoo.com/news/rss/",
+    "Yahoo Finance": "https://finance.yahoo.com/news/rss/",
+    "AP News": "https://apnews.com/rss"
 }
-
 # === Deutschsprachige Medien ===
 feeds_german = {
     "Finanzmarktwelt": "https://www.finanzmarktwelt.de/rss",
