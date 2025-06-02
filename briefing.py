@@ -286,7 +286,7 @@ def generate_briefing():
 
     # === Was heute wichtig wird ===
     briefing.append("\n## 🕒 Wirtschaftstermine China (diese Woche)")
-    briefing.extend(fetch_fxempire_china_events())
+    briefing.extend(fetch_myfxbook_china_events())
 
     # === Top 5 China-Stories laut Google News ===
     briefing.append("\n## 🏆 Top 5 China-Stories laut Google News")
