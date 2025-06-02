@@ -67,29 +67,39 @@ feeds_scmp_yicai = {
 
 # === China-Filter & Score-Funktionen ===
 def score_article(title, summary=""):
-    """Vergibt einen Score für einen Artikel basierend auf Relevanz für China-Briefing."""
+    """Bewertet Artikel anhand von China-Relevanz im Titel – nicht nur generisch."""
     title = title.lower()
     summary = summary.lower()
     content = f"{title} {summary}"
 
+    # Diese Begriffe müssen im Titel vorkommen – sonst kein China-Bezug
+    must_have_in_title = [
+        "china", "chinese", "xi", "beijing", "shanghai", "hong kong", "taiwan", "prc",
+        "communist party", "cpc", "byd", "alibaba", "tencent", "huawei", "li qiang", "brics", 
+        "belt and road", "macau", "pla"
+    ]
+
+    # Wenn nichts davon im Titel, gibt's gar keinen Score
+    if not any(kw in title for kw in must_have_in_title):
+        return 0
+
+    # Danach Scoring nach wirtschaftlicher/geopolitischer Relevanz
     important_keywords = [
-        "xi", "premier li", "taiwan", "nbs", "gdp", "exports", "export", "imports",
-        "sanctions", "policy", "housing", "real estate", "property", "home prices",
-        "house prices", "house market", "economy", "tech", "semiconductors", "ai",
-        "tariffs", "pmi", "cpi", "manufacturing", "industrial", "foreign direct investment"
+        "gdp", "exports", "imports", "tariffs", "real estate", "economy", "policy", "ai",
+        "semiconductors", "pmi", "cpi", "housing", "foreign direct investment", "tech",
+        "military", "sanctions", "trade", "data", "manufacturing", "industrial"
     ]
 
     positive_modifiers = [
-        "explainer", "analysis", "opinion", "comment", "feature", "data", "official"
+        "analysis", "explainer", "comment", "feature", "official", "report", "statement"
     ]
 
     negative_keywords = [
-        "celebrity", "gossip", "love", "dating", "wedding", "dog", "cat", "bizarre",
-        "baby", "tourist", "fashion", "movie", "series", "video", "tiktok", "weird",
-        "rapid", "lask", "bundesliga", "eurovision", "elon musk", "quiz", "selenskyj", "gaza"
+        "celebrity", "gossip", "dog", "baby", "fashion", "movie", "series", "bizarre",
+        "dating", "weird", "quiz", "elon musk", "rapid", "lask", "bundesliga", "eurovision"
     ]
 
-    score = 0
+    score = 1  # Basisscore, wenn Titel China-relevant ist
 
     for word in important_keywords:
         if word in content:
@@ -101,9 +111,10 @@ def score_article(title, summary=""):
 
     for word in negative_keywords:
         if word in content:
-            score -= 5
+            score -= 3
 
     return score
+
 
 
 
