@@ -1,12 +1,12 @@
 import os
 import smtplib
 import feedparser
+from collections import defaultdict
 import requests
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from bs4 import BeautifulSoup
 
-# === 🧠 Wirtschaftskalendar ===
 
 # === 🧠 Wirtschaftskalendar (Dummy) ===
 
@@ -28,27 +28,42 @@ if not config:
 pairs = config.split(";")
 config_dict = dict(pair.split("=", 1) for pair in pairs)
 
-# === US-/UK-Medien ===
-feeds = {
-    "Wall Street Journal": "https://feeds.a.dj.com/rss/RSSWorldNews.xml",
-    "New York Post": "https://nypost.com/feed/",
-    # "Bloomberg": "https://www.bloomberg.com/feed/podcast/next_china.xml",  # ← optional auskommentiert
-    "Financial Times": "https://www.ft.com/?format=rss",
-    "Reuters": "https://www.reutersagency.com/feed/?best-topics=china&post_type=best",
-    "The Guardian": "https://www.theguardian.com/world/china/rss",
-    "Nikkei Asia": "https://asia.nikkei.com/rss/feed/nar",
-    "Yahoo News": "https://www.yahoo.com/news/rss/",
-    "Yahoo Finance": "https://finance.yahoo.com/news/rss/",
-    "AP News": "https://apnews.com/rss"
+# === Google Mapping  ===
+source_categories = {
+    # EN/US/UK
+    "Wall Street Journal": "EN",
+    "Financial Times": "EN",
+    "Reuters": "EN",
+    "The Guardian": "EN",
+    "New York Times": "EN",
+    "Bloomberg": "EN",
+    "Politico": "EN",
+    
+    # Deutschsprachig
+    "FAZ": "DE",
+    "Welt": "DE",
+    "Tagesspiegel": "DE",
+    "NZZ": "DE",
+    "Finanzmarktwelt": "DE",
+    "Der Standard": "DE",
+    "Frankfurter Rundschau": "DE",
+
+    # Französisch
+    "Le Monde": "FR",
+    "Les Echos": "FR",
+    "Le Figaro": "FR",
+
+    # Asiatisch
+    "SCMP": "ASIA",
+    "Nikkei Asia": "ASIA",
+    "Yicai": "ASIA"
 }
-# === Deutschsprachige Medien ===
-feeds_german = {
-    "Finanzmarktwelt": "https://www.finanzmarktwelt.de/rss",
-    "Welt": "https://www.welt.de/feeds/section/wirtschaft.rss",
-    "FAZ": "https://www.faz.net/rss/aktuell/",
-    "Frankfurter Rundschau": "https://www.fr.de/rss.xml",
-    "Tagesspiegel": "https://www.tagesspiegel.de/rss.xml",
-    "Der Standard": "https://www.derstandard.at/rss"
+
+# === Google-News: Feed-Definition ===
+feeds_google_news = {
+    "EN": "https://news.google.com/rss/search?q=china+when:1d&hl=en&gl=US&ceid=US:en",
+    "DE": "https://news.google.com/rss/search?q=china+when:1d&hl=de&gl=DE&ceid=DE:de",
+    "FR": "https://news.google.com/rss/search?q=china+when:1d&hl=fr&gl=FR&ceid=FR:fr"
 }
 
 # === Think Tanks & Institute ===
@@ -172,6 +187,34 @@ def fetch_ranked_articles(feed_url, max_items=20, top_n=5):
     """Wendet denselben Bewertungsfilter wie fetch_news an, speziell für SCMP & Yicai."""
     return fetch_news(feed_url, max_items=max_items, top_n=top_n)
 
+# === Google News Extraction ===
+
+def extract_source(title):
+    known_sources = [
+        "Bloomberg", "Reuters", "Financial Times", "Wall Street Journal", "WSJ",
+        "The Guardian", "New York Post", "Yahoo Finance", "Yahoo News", "AP News",
+        "CNN", "NBC", "MSNBC", "Fox News", "South China Morning Post", "SCMP",
+        "JURIST", "Global Times", "CSIS", "Al Jazeera", "ION Analytics", "ABC News",
+        "Deseret News", "Nasdaq", "Pork Business", "Focus Taiwan", "Hawaii News Now",
+        "France 24", "Le Monde", "Zonebourse", "China.org.cn", "Telepolis", 
+        "Spiegel", "NZZ", "Handelsblatt", "FAZ", "Zeit Online", "T-Online", 
+        "Finanzen.net", "Wallstreet Online", "MSN", "BörsenNEWS.de", "Börse Online",
+        "ComputerBase", "Vietnam.vn", "OneFootball", "ARD Mediathek"
+    ]
+
+    for source in known_sources:
+        if source.lower() in title.lower():
+            return source
+
+    # Fallback: entferne " – Quelle" am Ende
+    if " – " in title:
+        return title.split(" – ")[-1].strip()
+    if "-" in title and len(title.split("-")[-1]) < 40:
+        return title.split("-")[-1].strip()
+
+    return "Unbekannt"
+
+
 
 # === NBS-Daten abrufen ===
 def fetch_latest_nbs_data():
@@ -257,20 +300,69 @@ def generate_briefing():
     for acc in x_accounts:
         briefing.extend(fetch_recent_x_posts(acc["account"], acc["name"], acc["url"]))
 
-    briefing.append("\n## 🇺🇸 Internationale Medien (US/UK/Asien)")
-    for source, url in feeds.items():
-        briefing.append(f"\n### {source}")
-        briefing.extend(fetch_news(url))
+    # === 🌍 Google News – Nach Sprache & Quelle sortiert ===
+    briefing.append("\n## 🌍 Google News – Nach Sprache & Quelle sortiert")
 
-    briefing.append("\n## 🇩🇪 Deutschsprachige Medien")
-    for source, url in feeds_german.items():
-        briefing.append(f"\n### {source}")
-        briefing.extend(fetch_news(url))
+    all_articles = {
+        "EN": defaultdict(list),
+        "DE": defaultdict(list),
+        "FR": defaultdict(list),
+        "ASIA": defaultdict(list),
+        "OTHER": defaultdict(list)
+    }
 
-    briefing.append("\n## 🧠 Think Tanks & Forschungsinstitute")
-    for source, url in feeds_thinktanks.items():
-        briefing.append(f"\n### {source}")
-        briefing.extend(fetch_news(url))
+    for lang, url in feeds_google_news.items():
+        feed = feedparser.parse(url)
+        for entry in feed.entries:
+            title = entry.get("title", "").strip()
+            summary = entry.get("summary", "").strip()
+            link = entry.get("link", "").strip()
+
+            if not title or not link:
+                continue
+
+            score = score_article(title, summary)
+            if score <= 0:
+                continue
+
+            source = extract_source(title)
+            category = source_categories.get(source, lang if lang in ["EN", "DE", "FR"] else "OTHER")
+
+            if source in ["SCMP", "Nikkei Asia", "Yicai"]:
+                category = "ASIA"
+
+            # Titel bereinigen (entferne Quelle am Anfang oder Ende)
+            clean_title = title
+            if f"– {source}" in title:
+                clean_title = title.split(f"– {source}")[0].strip()
+            elif f"- {source}" in title:
+                clean_title = title.split(f"- {source}")[0].strip()
+            if clean_title.lower().endswith(source.lower()):
+                clean_title = clean_title[:-(len(source))].strip("-:—– ").strip()
+
+            all_articles[category][source].append((score, f'• <a href="{link}">{clean_title}</a>'))
+
+    category_titles = {
+        "EN": "🇺🇸 Englischsprachige Medien",
+        "DE": "🇩🇪 Deutschsprachige Medien",
+        "FR": "🇫🇷 Französische Medien",
+        "ASIA": "🌏 Asiatische Medien",
+        "OTHER": "🧪 Sonstige Quellen"
+    }
+
+    for cat_key, sources in all_articles.items():
+        if not sources:
+            continue
+        briefing.append(f"\n## {category_titles.get(cat_key, cat_key)}")
+
+        for source_name, articles in sorted(sources.items()):
+            if not articles:
+                continue
+            briefing.append(f"\n### {source_name}")
+            top_articles = sorted(articles, reverse=True)[:5]
+            briefing.extend([a[1] for a in top_articles])
+
+
 
     briefing.append("\n## 📬 China-Fokus: Substack-Briefings")
     for source, url in feeds_substack.items():
