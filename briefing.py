@@ -6,6 +6,17 @@ import requests
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from bs4 import BeautifulSoup
+import imaplib
+import email
+
+
+# === Substack Mail-Konfiguration laden ===
+substack_mail = os.getenv("SUBSTACK_MAIL")
+if not substack_mail:
+    raise ValueError("SUBSTACK_MAIL environment variable not found!")
+
+mail_pairs = substack_mail.split(";")
+mail_config = dict(pair.split("=", 1) for pair in mail_pairs)
 
 
 # === 🧠 Wirtschaftskalendar (Dummy) ===
@@ -79,7 +90,7 @@ feeds_thinktanks = {
     "Lowy Institute": "https://www.lowyinstitute.org/the-interpreter/rss.xml"
 }
 
-# === Substack-Feeds ===
+# === Substack-Feeds: Bleibt noch als als Ruecfalloption - Substacks werden per Mail abgerufen ===
 feeds_substack = {
     "Sinocism – Bill Bishop": "https://sinocism.com/feed",
     "ChinaTalk – Jordan Schneider": "https://chinatalk.substack.com/feed",
@@ -104,7 +115,6 @@ feeds_substack = {
 feeds_topchina = {
     "Google News – China": "https://news.google.com/rss/search?q=china+when:1d&hl=en&gl=US&ceid=US:en"
 }
-
 
 # === SCMP & Yicai ===
 feeds_scmp_yicai = {
@@ -213,6 +223,82 @@ def extract_source(title):
         return title.split("-")[-1].strip()
 
     return "Unbekannt"
+
+
+# === Substack Mail-Konfiguration laden ===
+substack_mail = os.getenv("SUBSTACK_MAIL")
+if not substack_mail:
+    raise ValueError("SUBSTACK_MAIL environment variable not found!")
+
+mail_pairs = substack_mail.split(";")
+mail_config = dict(pair.split("=", 1) for pair in mail_pairs)
+
+
+# === Substack via Gmail abrufen ===
+def fetch_substack_from_email(email_user, email_password, folder="INBOX", max_results=1):
+    """Liest Substack-Mails aus Gmail, extrahiert Titel + echten Teaser + Link."""
+    import imaplib
+    import email
+    from bs4 import BeautifulSoup
+
+    imap = imaplib.IMAP4_SSL("imap.gmail.com")
+    imap.login(email_user, email_password)
+    imap.select(folder)
+
+    typ, data = imap.search(None, '(UNSEEN FROM "China Business Spotlight")')
+    if typ != "OK":
+        return ["❌ Fehler beim Suchen nach Substack-Mails."]
+
+    posts = []
+    email_ids = data[0].split()[-max_results:]
+    for eid in reversed(email_ids):
+        typ, msg_data = imap.fetch(eid, "(RFC822)")
+        if typ != "OK":
+            continue
+
+        msg = email.message_from_bytes(msg_data[0][1])
+        html = None
+
+        if msg.is_multipart():
+            for part in msg.walk():
+                if part.get_content_type() == "text/html":
+                    html = part.get_payload(decode=True).decode()
+                    break
+        elif msg.get_content_type() == "text/html":
+            html = msg.get_payload(decode=True).decode()
+
+        if not html:
+            continue
+
+        soup = BeautifulSoup(html, "html.parser")
+
+        # Titel
+        title_tag = soup.find("h1")
+        title = title_tag.text.strip() if title_tag else "Unbenannter Beitrag"
+
+        # Link (erstes <a> mit "https" im href)
+        link_tag = soup.find("a", href=lambda x: x and "https://" in x)
+        link = link_tag["href"].strip() if link_tag else "#"
+
+        # Teaser: Versuche, echten Artikeltext unter dem Titel zu finden
+        teaser = ""
+        if title_tag:
+            content_candidates = title_tag.find_all_next(string=True)
+            for text in content_candidates:
+                stripped = text.strip()
+                if 30 < len(stripped) < 300 and "dear reader" not in stripped.lower():
+                    teaser = stripped
+                    break
+
+        # Ergebnis zusammenbauen
+        line = f'• <a href="{link}">{title}</a>'
+        if teaser:
+            line += f" – {teaser}"
+        posts.append(line)
+
+    imap.logout()
+    return posts if posts else ["Keine neuen Substack-Mails gefunden."]
+
 
 
 
@@ -362,18 +448,23 @@ def generate_briefing():
             top_articles = sorted(articles, reverse=True)[:5]
             briefing.extend([a[1] for a in top_articles])
 
-
-
     briefing.append("\n## 📬 China-Fokus: Substack-Briefings")
-    for source, url in feeds_substack.items():
-        briefing.append(f"\n### {source}")
-        briefing.extend(fetch_news(url))
+    briefing.append("Aktuell im Testbetrieb: China Business Spotlight per Mail. Weitere Substack-Feeds folgen.")
+
 
     briefing.append("\n## SCMP – Top-Themen")
     briefing.extend(fetch_ranked_articles(feeds_scmp_yicai["SCMP"]))
 
     briefing.append("\n## Yicai Global – Top-Themen")
     briefing.extend(fetch_ranked_articles(feeds_scmp_yicai["Yicai Global"]))
+
+        # === Testlauf für Mail-Briefing China Business Spotlight ===
+    briefing.append("\n## 🧪 Test: China Business Spotlight per Mail")
+    briefing.extend(fetch_substack_from_email(
+        email_user=mail_config["GMAIL_USER"],
+        email_password=mail_config["GMAIL_PASS"]
+    ))
+
 
     briefing.append("\nEinen erfolgreichen Tag! 🌟")
     return f"""\
