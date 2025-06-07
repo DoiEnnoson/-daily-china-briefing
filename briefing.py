@@ -1,22 +1,45 @@
 import os
+import json
+from datetime import date, datetime
 import smtplib
 import feedparser
 from collections import defaultdict
 import requests
-from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from bs4 import BeautifulSoup
 import imaplib
 import email
 
+# Pfad zu den Holiday JSON Dateien (relativ zum Script-Verzeichnis)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CHINA_HOLIDAY_FILE = os.path.join(BASE_DIR, "holiday_cache", "china.json")
+HK_HOLIDAY_FILE = os.path.join(BASE_DIR, "holiday_cache", "hk.json")
 
-# === Substack Mail-Konfiguration laden ===
-substack_mail = os.getenv("SUBSTACK_MAIL")
-if not substack_mail:
-    raise ValueError("SUBSTACK_MAIL environment variable not found!")
+def load_holidays(filepath):
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            # Falls die JSON Struktur so ist: {"holidays": [{"date": "YYYY-MM-DD"}, ...]}
+            return set(item["date"] for item in data.get("holidays", []))
+    except Exception as e:
+        print(f"Fehler beim Laden der Feiertage aus {filepath}: {e}")
+        return set()
 
-mail_pairs = substack_mail.split(";")
-mail_config = dict(pair.split("=", 1) for pair in mail_pairs)
+def is_holiday(today_str, holidays_set):
+    return today_str in holidays_set
+
+def is_weekend():
+    # 5=Samstag, 6=Sonntag
+    return date.today().weekday() >= 5
+
+# Werte vorladen (global)
+today_str = date.today().isoformat()
+china_holidays = load_holidays(CHINA_HOLIDAY_FILE)
+hk_holidays = load_holidays(HK_HOLIDAY_FILE)
+is_holiday_china = is_holiday(today_str, china_holidays)
+is_holiday_hk = is_holiday(today_str, hk_holidays)
+is_weekend_day = is_weekend()
+
 
 
 # === 🧠 Wirtschaftskalendar (Dummy) ===
@@ -321,7 +344,7 @@ def fetch_latest_nbs_data():
     except Exception as e:
         return [f"❌ Fehler beim Abrufen der NBS-Daten: {e}"]
 
-# === Börsendaten abrufen ===
+# === Börsendaten & Wechselkurse abrufen ===
 def fetch_index_data():
     indices = {
         "Hang Seng Index (HSI)": "^HSI",
@@ -353,6 +376,36 @@ def fetch_index_data():
             results.append(f"❌ {name}: Fehler beim Abrufen ({e})")
     return results
 
+def fetch_currency_data():
+    currencies = {
+        "USDCNY": "USDCNY=X",
+        "USDCNH": "USDCNH=X",
+        "HKDUSD": "HKDUSD=X",
+    }
+
+    headers = {"User-Agent": "Mozilla/5.0"}
+    results = {}
+    for name, symbol in currencies.items():
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=2d"
+        try:
+            r = requests.get(url, headers=headers, timeout=10)
+            r.raise_for_status()
+            data = r.json()
+            closes = data["chart"]["result"][0]["indicators"]["quote"][0]["close"]
+            if len(closes) < 2 or not all(closes[-2:]):
+                results[name] = f"❌ {name}: Keine gültigen Daten verfügbar."
+                continue
+            prev_close = closes[-2]
+            last_close = closes[-1]
+            change = last_close - prev_close
+            pct = (change / prev_close) * 100
+            arrow = "→" if abs(pct) < 0.01 else "↑" if change > 0 else "↓"
+            results[name] = (last_close, arrow, pct)
+        except Exception as e:
+            results[name] = f"❌ {name}: Fehler beim Abrufen ({e})"
+    return results
+
+
 # === Stimmen von X ===
 x_accounts = [
     {"account": "Sino_Market", "name": "CN Wire", "url": "https://x.com/Sino_Market"},
@@ -370,8 +423,59 @@ def generate_briefing():
     date_str = datetime.now().strftime("%d. %B %Y")
     briefing = [f"Guten Morgen, Hado!\n\n🗓️ {date_str}\n\n📬 Dies ist dein tägliches China-Briefing.\n"]
 
+    # === Börsenindizes & Wechselkurse mit Feiertags-Logik ===
     briefing.append("\n## 📊 Börsenindizes China (08:00 Uhr MESZ)")
-    briefing.extend(fetch_index_data())
+
+    if is_weekend_day or is_holiday_china:
+        briefing.append("📈 Heute kein Handelstag an den chinesischen Börsen.")
+    else:
+        briefing.extend(fetch_index_data())
+
+    if is_weekend_day or is_holiday_hk:
+        briefing.append("📈 Heute kein Handelstag an der Börse Hongkong.")
+    # Wenn du fetch_index_data() auch für HK nutzt, dann trenn die HK-Indizes ggf. separat auf
+
+    # === Wechselkurse ===
+    briefing.append("\n## 💱 Wechselkurse (08:00 Uhr MESZ)")
+
+    if is_weekend_day or is_holiday_china or is_holiday_hk:
+        briefing.append("📉 Heute keine aktuellen Wechselkurse.")
+    else:
+        currency_data = fetch_currency_data()
+
+        # HKD Peg (CPR) – Kehrwert beachten!
+        if isinstance(currency_data.get("HKDUSD"), tuple):
+            val, arrow, pct = currency_data["HKDUSD"]
+            val_inv = 1 / val
+            pct_inv = -pct  # Richtungsumkehr
+            arrow_inv = "→" if abs(pct_inv) < 0.01 else "↑" if pct_inv > 0 else "↓"
+            briefing.append(f"• CPR (HKD/USD): {val_inv:.4f} {arrow_inv} ({pct_inv:+.2f} %)")
+        else:
+            briefing.append(currency_data.get("HKDUSD"))
+
+        # USDCNY (Onshore)
+        if isinstance(currency_data.get("USDCNY"), tuple):
+            val_cny, arrow_cny, pct_cny = currency_data["USDCNY"]
+            briefing.append(f"• USD/CNY (Onshore): {val_cny:.4f} {arrow_cny} ({pct_cny:+.2f} %)")
+        else:
+            briefing.append(currency_data.get("USDCNY"))
+
+        # USDCNH (Offshore)
+        if isinstance(currency_data.get("USDCNH"), tuple):
+            val_cnh, arrow_cnh, pct_cnh = currency_data["USDCNH"]
+            briefing.append(f"• USD/CNH (Offshore): {val_cnh:.4f} {arrow_cnh} ({pct_cnh:+.2f} %)")
+        else:
+            briefing.append(currency_data.get("USDCNH"))
+
+        # Spread CNH - CNY (nur wenn beide Werte verfügbar)
+        if (
+            isinstance(currency_data.get("USDCNY"), tuple) and
+            isinstance(currency_data.get("USDCNH"), tuple)
+        ):
+            val_cny = currency_data["USDCNY"][0]
+            val_cnh = currency_data["USDCNH"][0]
+            spread = val_cnh - val_cny
+            briefing.append(f"• Spread CNH–CNY: {spread:+.4f}")
 
     # === Top 5 China-Stories laut Google News ===
     briefing.append("\n## 🏆 Top 5 China-Stories laut Google News")
@@ -417,7 +521,6 @@ def generate_briefing():
             if source in ["SCMP", "Nikkei Asia", "Yicai"]:
                 category = "ASIA"
 
-            # Titel bereinigen (entferne Quelle am Anfang oder Ende)
             clean_title = title
             if f"– {source}" in title:
                 clean_title = title.split(f"– {source}")[0].strip()
@@ -451,22 +554,21 @@ def generate_briefing():
     briefing.append("\n## 📬 China-Fokus: Substack-Briefings")
     briefing.append("Aktuell im Testbetrieb: China Business Spotlight per Mail. Weitere Substack-Feeds folgen.")
 
-
     briefing.append("\n## SCMP – Top-Themen")
     briefing.extend(fetch_ranked_articles(feeds_scmp_yicai["SCMP"]))
 
     briefing.append("\n## Yicai Global – Top-Themen")
     briefing.extend(fetch_ranked_articles(feeds_scmp_yicai["Yicai Global"]))
 
-        # === Testlauf für Mail-Briefing China Business Spotlight ===
+    # === Testlauf für Mail-Briefing China Business Spotlight ===
     briefing.append("\n## 🧪 Test: China Business Spotlight per Mail")
     briefing.extend(fetch_substack_from_email(
         email_user=mail_config["GMAIL_USER"],
         email_password=mail_config["GMAIL_PASS"]
     ))
 
-
     briefing.append("\nEinen erfolgreichen Tag! 🌟")
+
     return f"""\
 <html>
   <body>
