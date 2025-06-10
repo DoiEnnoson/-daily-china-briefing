@@ -383,26 +383,47 @@ def fetch_currency_data():
         "HKDUSD": "HKDUSD=X",
     }
 
-    headers = {"User-Agent": "Mozilla/5.0"}
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
     results = {}
+
     for name, symbol in currencies.items():
         url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=2d"
         try:
             r = requests.get(url, headers=headers, timeout=10)
             r.raise_for_status()
             data = r.json()
-            closes = data["chart"]["result"][0]["indicators"]["quote"][0]["close"]
-            if len(closes) < 2 or not all(closes[-2:]):
-                results[name] = f"❌ {name}: Keine gültigen Daten verfügbar."
+
+            if not data.get("chart") or not data["chart"].get("result"):
+                results[name] = f"❌ {name}: Keine Daten in der API-Antwort."
                 continue
-            prev_close = closes[-2]
+
+            result = data["chart"]["result"][0]
+            closes = result["indicators"]["quote"][0]["close"]
+            prev_close = result.get("meta", {}).get("chartPreviousClose")
+
+            if not closes or len(closes) == 0 or prev_close is None:
+                results[name] = f"❌ {name}: Keine gültigen Kursdaten verfügbar (closes={closes}, prev_close={prev_close})."
+                continue
+
             last_close = closes[-1]
-            change = last_close - prev_close
-            pct = (change / prev_close) * 100
+            if len(closes) == 1:
+                change = last_close - prev_close
+                pct = (change / prev_close) * 100 if prev_close != 0 else 0
+            else:
+                prev_close = closes[-2]
+                change = last_close - prev_close
+                pct = (change / prev_close) * 100 if prev_close != 0 else 0
+
             arrow = "→" if abs(pct) < 0.01 else "↑" if change > 0 else "↓"
             results[name] = (last_close, arrow, pct)
+
+        except requests.exceptions.RequestException as e:
+            results[name] = f"❌ {name}: Netzwerkfehler beim Abrufen ({str(e)})"
+        except KeyError as e:
+            results[name] = f"❌ {name}: Fehler in der Datenstruktur ({str(e)})"
         except Exception as e:
-            results[name] = f"❌ {name}: Fehler beim Abrufen ({e})"
+            results[name] = f"❌ {name}: Unerwarteter Fehler ({str(e)})"
+
     return results
 
 
