@@ -652,6 +652,12 @@ def generate_briefing():
 </html>"""
 
 # === E-Mail senden ===
+# === Test Substack-Zugriff und Briefing generieren ===
+print("🧪 Teste Substack-E-Mail-Zugriff...")
+test_result = test_substack_email_access()
+print(test_result)
+
+# === Briefing generieren ===
 print("🧠 Erzeuge Briefing...")
 briefing_content = generate_briefing()
 
