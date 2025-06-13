@@ -1,14 +1,19 @@
 import os
 import json
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import smtplib
 import feedparser
 from collections import defaultdict
 import requests
 from email.mime.text import MIMEText
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
 import imaplib
 import email
+import time
+from email.utils import parsedate_to_datetime
+import warnings
+
+warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 
 # Pfad zu den Holiday JSON Dateien (relativ zum Script-Verzeichnis)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -98,27 +103,6 @@ feeds_thinktanks = {
     "Lowy Institute": "https://www.lowyinstitute.org/the-interpreter/rss.xml"
 }
 
-# === Substack-Feeds (als Fallback, nicht genutzt) ===
-feeds_substack = {
-    "Sinocism – Bill Bishop": "https://sinocism.com/feed",
-    "ChinaTalk – Jordan Schneider": "https://chinatalk.substack.com/feed",
-    "Pekingology": "https://pekingnology.substack.com/feed",
-    "The Rare Earth Observer": "https://treo.substack.com/feed",
-    "Baiguan": "https://www.baiguan.news/feed",
-    "Bert’s Newsletter": "https://berthofman.substack.com/feed",
-    "Hong Kong Money Never Sleeps": "https://moneyhk.substack.com/feed",
-    "Tracking People’s Daily": "https://trackingpeoplesdaily.substack.com/feed",
-    "Interconnected": "https://interconnect.substack.com/feed",
-    "Ginger River Review": "https://www.gingerriver.com/feed",
-    "The East is Read": "https://www.eastisread.com/feed",
-    "Inside China – Fred Gao": "https://www.fredgao.com/feed",
-    "China Business Spotlight": "https://chinabusinessspotlight.substack.com/feed",
-    "ChinAI Newsletter": "https://chinai.substack.com/feed",
-    "Tech Buzz China Insider": "https://techbuzzchina.substack.com/feed",
-    "Sinical China": "https://www.sinicalchina.com/feed",
-    "Observing China": "https://www.observingchina.org.uk/feed"
-}
-
 # === Google News China Top-Stories ===
 feeds_topchina = {
     "Google News – China": "https://news.google.com/rss/search?q=china+when:1d&hl=en&gl=US&ceid=US:en"
@@ -186,109 +170,194 @@ def fetch_news(feed_url, max_items=20, top_n=5):
 def fetch_ranked_articles(feed_url, max_items=20, top_n=5):
     return fetch_news(feed_url, max_items=max_items, top_n=top_n)
 
-# === Google News Extraction ===
+# === Neue Funktion: extract_source (für Google News) ===
 def extract_source(title):
-    known_sources = [
-        "Bloomberg", "Reuters", "Financial Times", "Wall Street Journal", "WSJ",
-        "The Guardian", "New York Post", "Yahoo Finance", "Yahoo News", "AP News",
-        "CNN", "NBC", "MSNBC", "Fox News", "South China Morning Post", "SCMP",
-        "JURIST", "Global Times", "CSIS", "Al Jazeera", "ION Analytics", "ABC News",
-        "Deseret News", "Nasdaq", "Pork Business", "Focus Taiwan", "Hawaii News Now",
-        "France 24", "Le Monde", "Zonebourse", "China.org.cn", "Telepolis",
-        "Spiegel", "NZZ", "Handelsblatt", "FAZ", "Zeit Online", "T-Online",
-        "Finanzen.net", "Wallstreet Online", "MSN", "BörsenNEWS.de", "Börse Online",
-        "ComputerBase", "Vietnam.vn", "OneFootball", "ARD Mediathek"
-    ]
-    for source in known_sources:
-        if source.lower() in title.lower():
+    """Extrahiert den Quellennamen aus dem Titel (z. B. '– Reuters')."""
+    for source in source_categories:
+        if f"– {source}" in title or f"- {source}" in title or title.lower().endswith(source.lower()):
             return source
-    if " – " in title:
-        return title.split(" – ")[-1].strip()
-    if "-" in title and len(title.split("-")[-1]) < 40:
-        return title.split("-")[-1].strip()
-    return "Unbekannt"
+    return "Unknown Source"
 
-# === Substack via Gmail abrufen ===
-def fetch_substack_from_email(email_user, email_password, folder="INBOX", max_results_per_sender=1):
-    """Liest Substack-Mails von mehreren Absendern aus einer Gmail-Adresse."""
+# === Substack aus E-Mails abrufen ===
+def fetch_substack_from_email(email_user, email_password, folder="INBOX", max_results_per_sender=5):
+    """Liest Substack-Mails von mehreren Absendern aus Gmail, robuste Version."""
     posts = []
     
-    # Substack-Liste aus JSON laden
     try:
+        print(f"Debug - Aktuelles Arbeitsverzeichnis: {os.getcwd()}")
+        print(f"Debug - Existiert substacks.json?: {os.path.exists('substacks.json')}")
         with open("substacks.json", "r") as f:
             substack_senders = json.load(f)
         substack_senders = sorted(substack_senders, key=lambda x: x["order"])
+        # Prüfe auf doppelte E-Mail-Adressen
+        email_counts = defaultdict(int)
+        for sender in substack_senders:
+            email_counts[sender.get("email")] += 1
+        duplicates = [email for email, count in email_counts.items() if count > 1 and email]
+        if duplicates:
+            print(f"⚠️ Warnung: Doppelte E-Mail-Adressen in substacks.json: {duplicates}")
     except FileNotFoundError:
-        print("❌ Fehler: substacks.json nicht gefunden!")
-        return [("Allgemein", "❌ Fehler: substacks.json nicht gefunden.")]
+        print("❌ Fehler: substacks.json nicht gefunden! Verwende leere Liste.")
+        substack_senders = []
+        posts.append(("Allgemein", "❌ Fehler: substacks.json nicht gefunden.", "#", "", 999))
     except json.JSONDecodeError:
         print("❌ Fehler: substacks.json ungültig!")
-        return [("Allgemein", "❌ Fehler: substacks.json ungültig.")]
+        substack_senders = []
+        posts.append(("Allgemein", "❌ Fehler: substacks.json ungültig.", "#", "", 999))
+    
+    # Retry-Logik für Gmail-Verbindung
+    for attempt in range(3):
+        try:
+            imap = imaplib.IMAP4_SSL("imap.gmail.com")
+            imap.login(email_user, email_password)
+            imap.select(folder)
+            break
+        except Exception as e:
+            print(f"❌ Verbindung zu Gmail fehlgeschlagen (Versuch {attempt+1}/3): {str(e)}")
+            if attempt == 2:
+                return [("Allgemein", f"❌ Fehler beim Verbinden mit Gmail nach 3 Versuchen: {str(e)}", "#", "", 999)]
+            time.sleep(2)
     
     try:
-        imap = imaplib.IMAP4_SSL("imap.gmail.com")
-        imap.login(email_user, email_password)
-        imap.select(folder)
+        # Datumsfilter: Letzte 3 Tage
+        since_date = (datetime.now() - timedelta(days=3)).strftime("%d-%b-%Y")
         for sender in substack_senders:
             sender_email = sender.get("email")
             sender_name = sender.get("name")
+            sender_order = sender.get("order", 999)  # Fallback für fehlenden order-Wert
             if not sender_email:
-                posts.append((sender_name, f"❌ Keine E-Mail-Adresse für {sender_name} angegeben."))
+                posts.append((sender_name, f"❌ Keine E-Mail-Adresse für {sender_name} angegeben.", "#", "", sender_order))
                 continue
             try:
-                search_query = f'(UNSEEN FROM "{sender_email}")'
+                # Suche: Alle Mails seit since_date von Absender
+                search_query = f'(FROM "{sender_email}" SINCE {since_date})'
                 print(f"Debug - Suche nach: {search_query}")
                 typ, data = imap.search(None, search_query)
                 if typ != "OK":
-                    posts.append((sender_name, f"❌ Fehler beim Suchen nach Mails von {sender_name} ({sender_email})."))
+                    print(f"Debug - IMAP-Suchfehler für {sender_name} ({sender_email}): {data}")
+                    posts.append((sender_name, f"❌ Fehler beim Suchen nach Mails von {sender_name} ({sender_email}).", "#", "", sender_order))
                     continue
                 email_ids = data[0].split()[-max_results_per_sender:]
+                print(f"Debug - Gefundene Mail-IDs für {sender_name}: {email_ids}")
                 if not email_ids:
-                    posts.append((sender_name, f"📭 Keine neuen Mails von {sender_name} gefunden."))
+                    posts.append((sender_name, f"📭 Keine Mails von {sender_name} in den letzten 3 Tagen gefunden.", "#", "", sender_order))
                     continue
-                for eid in reversed(email_ids):
+                # Temporäre Liste für Beiträge dieses Senders
+                sender_posts = []
+                for eid in email_ids:
                     typ, msg_data = imap.fetch(eid, "(RFC822)")
                     if typ != "OK":
-                        posts.append((sender_name, f"❌ Fehler beim Abrufen der Mail {eid} von {sender_name}."))
+                        sender_posts.append((sender_name, f"❌ Fehler beim Abrufen der Mail {eid} von {sender_name}.", "#", "", sender_order, None))
                         continue
                     msg = email.message_from_bytes(msg_data[0][1])
+                    date_str = msg["Date"]
+                    mail_date = None
+                    if date_str:
+                        try:
+                            mail_date = parsedate_to_datetime(date_str)
+                            print(f"Debug - Datum für Mail {eid} von {sender_name}: {mail_date}")
+                        except (TypeError, ValueError) as e:
+                            print(f"Debug - Ungültiges Datum in Mail {eid} von {sender_name}: {date_str}, Fehler: {str(e)}")
+                    else:
+                        print(f"Debug - Kein Datum in Mail {eid} von {sender_name}")
                     html = None
                     if msg.is_multipart():
                         for part in msg.walk():
                             if part.get_content_type() == "text/html":
-                                html = part.get_payload(decode=True).decode()
+                                html = part.get_payload(decode=True).decode(errors="ignore")
                                 break
                     elif msg.get_content_type() == "text/html":
-                        html = msg.get_payload(decode=True).decode()
+                        html = msg.get_payload(decode=True).decode(errors="ignore")
                     if not html:
-                        posts.append((sender_name, f"❌ Kein HTML-Inhalt in der Mail {eid} von {sender_name}."))
+                        sender_posts.append((sender_name, f"❌ Kein HTML-Inhalt in der Mail {eid} von {sender_name}.", "#", "", sender_order, mail_date))
                         continue
-                    soup = BeautifulSoup(html, "html.parser")
-                    title_tag = soup.find("h1") or soup.find("h2")
-                    title = title_tag.text.strip() if title_tag else "Unbenannter Beitrag"
+                    soup = BeautifulSoup(html, "lxml")
+                    # Erweiterte Titel-Suche
+                    title_tag = (soup.find("h1") or 
+                                soup.find("h2") or 
+                                soup.find("h3") or 
+                                soup.find("p", class_=lambda x: x and "title" in x.lower()) or
+                                soup.find("div", class_=lambda x: x and "title" in x.lower()) or
+                                soup.find("span", class_=lambda x: x and "title" in x.lower()))
+                    if not title_tag:
+                        link_tag = soup.find("a", href=lambda x: x and "/post/" in x)
+                        if link_tag and link_tag.text.strip():
+                            title = link_tag.text.strip()
+                        else:
+                            title = msg["Subject"].strip() if msg["Subject"] else "Unbenannter Beitrag"
+                    else:
+                        title = title_tag.text.strip()
+                    print(f"Debug - Titel für {sender_name}: {title}")
+                    # Link-Suche
                     link_tag = soup.find("a", href=lambda x: x and ("app-link/post" in x or "/post/" in x))
                     if not link_tag:
                         link_tag = soup.find("a", href=lambda x: x and "https://" in x)
                     link = link_tag["href"].strip() if link_tag else "#"
+                    # Verbesserte Teaser-Suche
                     teaser = ""
-                    if title_tag:
-                        content_candidates = title_tag.find_all_next(string=True)
+                    if title_tag or link_tag:
+                        start_tag = title_tag or link_tag
+                        content_candidates = start_tag.find_all_next(string=True)
                         found_title = False
+                        teaser_parts = []
                         for text in content_candidates:
                             stripped = text.strip()
-                            if not found_title and stripped and stripped in title:
+                            if not found_title and stripped and (stripped in title or stripped in link):
                                 found_title = True
                                 continue
-                            if found_title and 50 < len(stripped) < 500 and "dear reader" not in stripped.lower() and "subscribe" not in stripped.lower():
-                                teaser = stripped
-                                break
-                    posts.append((sender_name, title, link, teaser))
+                            if (found_title and 30 < len(stripped) < 500 and 
+                                "dear reader" not in stripped.lower() and 
+                                "subscribe" not in stripped.lower() and 
+                                "view in browser" not in stripped.lower()):
+                                teaser_parts.append(stripped)
+                                if len(" ".join(teaser_parts)) > 100:
+                                    break
+                        teaser = " ".join(teaser_parts).strip()[:300]
+                    print(f"Debug - Teaser für {sender_name}: {teaser}")
+                    sender_posts.append((sender_name, title, link, teaser, sender_order, mail_date))
+                # Sortiere Beiträge nach Datum (neuester zuerst)
+                sender_posts.sort(key=lambda x: x[5] or datetime(1970, 1, 1), reverse=True)
+                # Füge sortierte Beiträge zu posts hinzu
+                posts.extend(sender_posts)
             except Exception as e:
-                posts.append((sender_name, f"❌ Fehler bei der Verarbeitung von {sender_name} ({sender_email}): {str(e)}"))
+                posts.append((sender_name, f"❌ Fehler bei der Verarbeitung von {sender_name} ({sender_email}): {str(e)}", "#", "", sender_order))
         imap.logout()
     except Exception as e:
-        posts.append(("Allgemein", f"❌ Fehler beim Verbinden mit Gmail: {str(e)}"))
-    return posts if posts else [("Allgemein", "Keine neuen Substack-Mails gefunden.")]
+        posts.append(("Allgemein", f"❌ Fehler beim Verbinden mit Gmail: {str(e)}", "#", "", 999))
+    return posts if posts else [("Allgemein", "Keine neuen Substack-Mails gefunden.", "#", "", 999)]
+
+# === Substack-Posts rendern ===
+def render_markdown(posts):
+    """Erzeugt Markdown für Substack-Beiträge, mit einer Überschrift pro Substack."""
+    if not posts:
+        return ["Keine neuen Substack-Artikel gefunden."]
+    
+    # Gruppiere Beiträge nach sender_name und speichere den order-Wert
+    grouped_posts = defaultdict(list)
+    sender_orders = {}
+    for post in posts:
+        sender_name = post[0]
+        sender_order = post[4] if len(post) > 4 else 999  # sender_order ist an Position 4
+        grouped_posts[sender_name].append(post)
+        sender_orders[sender_name] = min(sender_orders.get(sender_name, 999), sender_order)
+    
+    # Sortiere Substacks nach sender_order
+    sorted_senders = sorted(grouped_posts.keys(), key=lambda x: sender_orders.get(x, 999))
+    
+    markdown = []
+    for sender_name in sorted_senders:
+        markdown.append(f"### {sender_name}")
+        for post in grouped_posts[sender_name]:
+            if len(post) == 2:  # Fehlerfall (z. B. "📭 Keine Mails")
+                markdown.append(f"{post[1]}\n")
+            else:  # Normaler Beitrag
+                title, link, teaser = post[1], post[2], post[3]
+                markdown.append(f"• <a href=\"{link}\">{title}</a>")
+                if teaser:
+                    markdown.append(f"{teaser}")
+                markdown.append("")
+    
+    return markdown
 
 # === NBS-Daten abrufen ===
 def fetch_latest_nbs_data():
@@ -497,10 +566,6 @@ def generate_briefing():
             top_articles = sorted(articles, reverse=True)[:5]
             briefing.extend([a[1] for a in top_articles])
 
-    # Alter Substack-Abschnitt (wird entfernt)
-    # briefing.append("\n## 📬 China-Fokus: Substack-Briefings")
-    # briefing.append("Aktuell im Testbetrieb: China Business Spotlight per Mail. Weitere Substack-Feeds folgen.")
-
     # SCMP
     briefing.append("\n## SCMP – Top-Themen")
     briefing.extend(fetch_ranked_articles(feeds_scmp_yicai["SCMP"]))
@@ -529,19 +594,9 @@ def generate_briefing():
                 email_user = mail_config["GMAIL_USER"]
                 email_password = mail_config["GMAIL_PASS"]
                 posts = fetch_substack_from_email(email_user, email_password)
-                for post in posts:
-                    sender_name = post[0]
-                    if len(post) == 2:
-                        briefing.append(f"\n### {sender_name}\n{post[1]}")
-                    else:
-                        title, link, teaser = post[1], post[2], post[3]
-                        briefing.append(f"\n### {sender_name}\n<strong><a href=\"{link}\">{title}</a></strong>\n{teaser}")
+                briefing.extend(render_markdown(posts))
         except ValueError as e:
             briefing.append(f"❌ Fehler beim Parsen von SUBSTACK_MAIL: {str(e)}")
-
-    # Alter Test-Abschnitt (entfernt)
-    # briefing.append("\n## 🧪 Test: China Business Spotlight per Mail")
-    # briefing.extend(fetch_substack_from_email(email_user=mail_config["GMAIL_USER"], email_password=mail_config["GMAIL_PASS"]))
 
     briefing.append("\nEinen erfolgreichen Tag! 🌟")
 
