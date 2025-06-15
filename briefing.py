@@ -662,13 +662,14 @@ def generate_briefing():
 
     return f"""\
 <html>
-  <body>
-    <pre style="font-family: system-ui, sans-serif">
+  <body style="background-color: white;">
+    <div style="background-color: white; padding: 20px;">
+      <pre style="font-family: system-ui, sans-serif">
 {chr(10).join(briefing)}
-    </pre>
+      </pre>
+    </div>
   </body>
 </html>"""
-
 # === E-Mail senden ===
 # === Test Substack-Zugriff und Briefing generieren ===
 print("🧪 Teste Substack-E-Mail-Zugriff...")
