@@ -1,1 +1,10 @@
-
+{
+  "adjusted_workdays": [
+    {"date": "2026-01-04", "name": "Adjusted Working Day"},
+    {"date": "2026-02-14", "name": "Adjusted Working Day"},
+    {"date": "2026-02-28", "name": "Adjusted Working Day"},
+    {"date": "2026-05-09", "name": "Adjusted Working Day"},
+    {"date": "2026-09-20", "name": "Adjusted Working Day"},
+    {"date": "2026-10-10", "name": "Adjusted Working Day"}
+  ]
+}
